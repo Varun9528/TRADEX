@@ -224,7 +224,37 @@ npm run dev:frontend  # Frontend on :3000
 
 ---
 
-## Production Deployment
+## 🚀 Production Deployment
+
+**Status:** Ready for Production ✅
+
+### Live URLs
+- **Backend:** https://tradex-384m.onrender.com
+- **Frontend:** Deploy to Vercel (see VERCEL_DEPLOYMENT.md)
+- **Database:** MongoDB Atlas (cloud)
+
+### Quick Deploy
+
+**1. Backend (Render):**
+```bash
+# Already deployed!
+https://tradex-384m.onrender.com
+```
+
+**2. Frontend (Vercel):**
+```bash
+# Add to frontend/.env
+VITE_API_URL=https://tradex-384m.onrender.com
+
+# Deploy to Vercel
+cd frontend
+vercel --prod
+```
+
+📖 **Complete Guides:**
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Backend deployment guide
+- [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md) - Frontend deployment guide
+- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Connection testing guide
 
 ### Environment Variables (Production)
 

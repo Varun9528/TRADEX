@@ -3,15 +3,17 @@ import { io } from 'socket.io-client';
 import useAuthStore from './authStore';
 
 const SocketContext = createContext(null);
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin;
 
 export function SocketProvider({ children }) {
   const socketRef = useRef(null);
   const { user, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    socketRef.current = io(window.location.origin, {
+    socketRef.current = io(SOCKET_URL, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
+      path: '/socket.io/',
     });
 
     socketRef.current.on('connect', () => {
