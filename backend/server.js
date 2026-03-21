@@ -39,17 +39,30 @@ app.set('io', io);
 // ── SECURITY MIDDLEWARE ──
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
 
-// CORS Configuration - Support multiple origins in production
-const corsOrigins = process.env.FRONTEND_URL 
-  ? [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173']
-  : ['http://localhost:3000', 'http://localhost:5173'];
+// Explicitly handle OPTIONS preflight requests
+app.options('*', cors());
+
+// CORS Configuration - Support multiple origins including Vercel production
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://frontend-three-gamma-ahre3jjli0.vercel.app',
+  'https://frontend-41c5beyxm-varun-tiroles-projects.vercel.app',
+  'https://frontend-5ul60q9uk-varun-tiroles-projects.vercel.app',
+  'https://frontend-d2659zdbq-varun-tiroles-projects.vercel.app'
+];
+
+// Add production URL from environment variable if exists
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (corsOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
