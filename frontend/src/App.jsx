@@ -28,6 +28,8 @@ import NotificationsPage from './pages/NotificationsPage';
 import ReferralPage from './pages/ReferralPage';
 import ProfilePage from './pages/ProfilePage';
 import PositionsPage from './pages/PositionsPage';
+import FundsPage from './pages/FundsPage';
+import AccountPage from './pages/AccountPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminKYC from './pages/admin/AdminKYC';
 import AdminUsers from './pages/admin/AdminUsers';
@@ -96,6 +98,8 @@ export default function App() {
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="referral" element={<ReferralPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="funds" element={<FundsPage />} />
+              <Route path="account" element={<AccountPage />} />
 
               {/* Admin */}
               <Route path="admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
