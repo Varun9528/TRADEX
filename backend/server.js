@@ -22,6 +22,7 @@ const tradeRoutes = require('./routes/trades');
 const walletRoutes = require('./routes/wallet');
 const watchlistRoutes = require('./routes/watchlist');
 const orderRoutes = require('./routes/orders');
+const positionRoutes = require('./routes/positions');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
 
@@ -110,6 +111,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/positions', positionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 

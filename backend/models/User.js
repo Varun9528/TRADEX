@@ -30,8 +30,11 @@ const userSchema = new mongoose.Schema({
   tradingEnabled: { type: Boolean, default: false },
   segment: [{ type: String, enum: ['EQ', 'FO', 'MF'] }],
 
-  // ── WALLET ──
+  // ── WALLET & MARGIN ──
   walletBalance: { type: Number, default: 0, min: 0 },
+  availableBalance: { type: Number, default: 0, min: 0 },
+  usedMargin: { type: Number, default: 0, min: 0 },
+  openingBalance: { type: Number, default: 0 },
   blockedAmount: { type: Number, default: 0 },
 
   // ── KYC ──

@@ -8,10 +8,26 @@ const { body, validationResult } = require('express-validator');
 
 router.use(protect);
 
-// GET /api/wallet/balance
+// GET /api/wallet/balance - Enhanced with margin info
 router.get('/balance', async (req, res) => {
-  const user = await User.findById(req.user._id).select('walletBalance blockedAmount');
-  res.json({ success: true, data: { balance: user.walletBalance, blocked: user.blockedAmount, available: user.walletBalance - user.blockedAmount } });
+  const user = await User.findById(req.user._id).select('walletBalance availableBalance usedMargin openingBalance blockedAmount');
+  
+  const totalInvestment = user.usedMargin;
+  const totalBalance = user.walletBalance + totalInvestment;
+  
+  res.json({ 
+    success: true, 
+    data: { 
+      availableBalance: user.availableBalance,
+      walletBalance: user.walletBalance,
+      usedMargin: user.usedMargin,
+      openingBalance: user.openingBalance,
+      blockedAmount: user.blockedAmount,
+      totalBalance,
+      totalInvestment,
+      buyingPower: user.availableBalance
+    } 
+  });
 });
 
 // GET /api/wallet/transactions

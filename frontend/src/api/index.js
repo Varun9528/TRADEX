@@ -116,6 +116,12 @@ export const tradeAPI = {
   getOrders: (params) => api.get('/trades/orders', { params }),
   getHoldings: () => api.get('/trades/holdings'),
   cancelOrder: (orderId) => api.delete(`/trades/orders/${orderId}`),
+  modifyOrder: (orderId, data) => api.put(`/trades/orders/${orderId}`, data),
+};
+
+export const positionAPI = {
+  getAll: (params) => api.get('/positions', { params }),
+  close: (symbol, data) => api.post(`/positions/${symbol}/close`, data),
 };
 
 export const walletAPI = {

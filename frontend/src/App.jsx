@@ -27,6 +27,7 @@ import KYCPage from './pages/KYCPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ReferralPage from './pages/ReferralPage';
 import ProfilePage from './pages/ProfilePage';
+import PositionsPage from './pages/PositionsPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminKYC from './pages/admin/AdminKYC';
 import AdminUsers from './pages/admin/AdminUsers';
@@ -89,6 +90,7 @@ export default function App() {
               <Route path="watchlist" element={<WatchlistPage />} />
               <Route path="portfolio" element={<PortfolioPage />} />
               <Route path="orders" element={<OrdersPage />} />
+              <Route path="positions" element={<PositionsPage />} />
               <Route path="wallet" element={<WalletPage />} />
               <Route path="kyc" element={<KYCPage />} />
               <Route path="notifications" element={<NotificationsPage />} />

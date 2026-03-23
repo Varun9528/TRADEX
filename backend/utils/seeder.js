@@ -89,24 +89,33 @@ async function seed() {
     // ── DEMO USER ──
     console.log('🌱 Seeding demo user...');
     await User.deleteOne({ email: 'user@tradex.in' });
-    const demoUser = await User.create({
-      fullName: 'Rahul Sharma',
+    const user = await User.create({
+      fullName: 'Demo Trader',
       email: 'user@tradex.in',
       mobile: '9876543210',
       password: 'Demo@123456',
       role: 'user',
       isActive: true,
-      kycStatus: 'approved',
       tradingEnabled: true,
-      walletBalance: 124500,
+      kycStatus: 'approved',
+      walletBalance: 100000,
+      availableBalance: 100000,
+      openingBalance: 100000,
+      usedMargin: 0,
+      segment: ['EQ'],
       emailVerified: true,
       mobileVerified: true,
     });
-    await KYC.create({ user: demoUser._id, status: 'approved', currentStep: 5 });
+    user.generateDematAccount();
+    await user.save();
+    
+    // Create watchlist for user
+    const stocks = await Stock.find({ symbol: { $in: ['RELIANCE', 'TCS', 'INFOSYS', 'HDFCBANK', 'ITC'] } });
     await Watchlist.create({
-      user: demoUser._id,
-      stocks: ['RELIANCE','TCS','INFOSYS','HDFCBANK','WIPRO'].map(sym => ({ symbol: sym }))
+      user: user._id,
+      stocks: stocks.map(s => ({ symbol: s.symbol, stock: s._id })),
     });
+    
     console.log(`✅ Demo user created: user@tradex.in / Demo@123456`);
 
     console.log('\n🎉 Database seeded successfully!\n');
