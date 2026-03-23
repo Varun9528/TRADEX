@@ -1,13 +1,20 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Watchlist, Briefcase, ShoppingCart, User, Wallet, TrendingUp } from 'lucide-react';
+import {
+  LayoutGrid,
+  Activity,
+  Briefcase,
+  BarChart3,
+  Wallet,
+  User
+} from 'lucide-react';
 
 export default function BottomNav() {
   const location = useLocation();
   
   const navItems = [
-    { path: '/watchlist', icon: Watchlist, label: 'Watchlist' },
-    { path: '/orders', icon: ShoppingCart, label: 'Orders' },
-    { path: '/positions', icon: TrendingUp, label: 'Positions' },
+    { path: '/watchlist', icon: LayoutGrid, label: 'Watchlist' },
+    { path: '/orders', icon: Activity, label: 'Orders' },
+    { path: '/positions', icon: BarChart3, label: 'Positions' },
     { path: '/portfolio', icon: Briefcase, label: 'Portfolio' },
     { path: '/funds', icon: Wallet, label: 'Funds' },
     { path: '/account', icon: User, label: 'Account' },
