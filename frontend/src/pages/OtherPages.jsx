@@ -134,7 +134,6 @@ export function PortfolioPage() {
 // ─── ORDERS PAGE ───────────────────────────────────────────
 import { useState } from 'react';
 import { orderAPI } from '../api';
-import BottomNav from '../components/BottomNav';
 
 export function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('');

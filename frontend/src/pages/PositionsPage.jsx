@@ -1,3 +1,51 @@
+import { useState, useEffect } from 'react';
+import { useSocket } from '../context/SocketContext';
+import { positionAPI } from '../api';
+import toast from 'react-hot-toast';
+import BottomNav from '../components/BottomNav';
+
+export default function PositionsPage() {
+  const [positions, setPositions] = useState([]);
+  const [filter, setFilter] = useState('open'); // open, closed, all
+  const socket = useSocket();
+  
+  const fetchPositions = async () => {
+    try {
+      const { data } = await positionAPI.getAll({ type: filter });
+      setPositions(data.data || []);
+    } catch (err) {
+      toast.error('Failed to load positions');
+    }
+  };
+
+  useEffect(() => {
+    fetchPositions();
+    
+    // Real-time updates
+    if (socket) {
+      socket.on('position:updated', fetchPositions);
+      return () => {
+        socket.off('position:updated');
+      };
+    }
+  }, [filter]);
+
+  const handleClosePosition = async (symbol) => {
+    if (!confirm(`Square off ${symbol}?`)) return;
+    
+    try {
+      await positionAPI.close(symbol);
+      toast.success('Position closed successfully');
+      fetchPositions();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to close position');
+    }
+  };
+
+  const totalPnl = positions.reduce((sum, pos) => sum + (pos.unrealizedPnl || 0), 0);
+  const totalInvestment = positions.reduce((sum, pos) => sum + (pos.investmentValue || 0), 0);
+  const totalCurrentValue = positions.reduce((sum, pos) => sum + (pos.currentValue || 0), 0);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-4">
       {/* Header */}
@@ -133,3 +181,4 @@
       <BottomNav />
     </div>
   );
+}
