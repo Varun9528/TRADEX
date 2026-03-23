@@ -1,6 +1,7 @@
 // ─── PORTFOLIO PAGE ───────────────────────────────────────
 import { useQuery } from '@tanstack/react-query';
 import { tradeAPI } from '../api';
+import BottomNav from '../components/BottomNav';
 
 export function PortfolioPage() {
   const { data, isLoading } = useQuery({ queryKey: ['holdings'], queryFn: () => tradeAPI.getHoldings() });
@@ -11,49 +12,121 @@ export function PortfolioPage() {
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-[#00d084] border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
-    <div className="space-y-5 animate-slide-up">
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-4 space-y-4 md:space-y-5 animate-slide-up">
+      {/* Summary Cards - Responsive Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 px-2 md:px-0">
         {[
           { label: 'Invested', val: `₹${(summary?.totalInvested || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
           { label: 'Current Value', val: `₹${(summary?.totalCurrentValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
           { label: 'Total P&L', val: `${pnl >= 0 ? '+' : ''}₹${Math.abs(pnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, pnl },
         ].map(c => (
-          <div key={c.label} className="stat-card">
-            <div className="text-xs text-[#8b9cc8] mb-1">{c.label}</div>
-            <div className={`text-xl font-bold ${c.pnl !== undefined ? (c.pnl >= 0 ? 'text-[#00d084]' : 'text-[#ff4f6a]') : ''}`}>{c.val}</div>
-            {c.pnl !== undefined && <div className={`text-xs mt-1 ${c.pnl >= 0 ? 'text-[#00d084]' : 'text-[#ff4f6a]'}`}>{(summary?.totalPnlPercent || 0).toFixed(2)}% all time</div>}
+          <div key={c.label} className="bg-white rounded-lg p-3 md:p-5 shadow-sm border border-gray-200">
+            <div className="text-[10px] md:text-xs text-gray-500 mb-1">{c.label}</div>
+            <div className={`text-lg md:text-xl font-bold ${c.pnl !== undefined ? (c.pnl >= 0 ? 'text-green-600' : 'text-red-600') : ''}`}>
+              {c.val}
+            </div>
+            {c.pnl !== undefined && (
+              <div className={`text-[10px] md:text-xs mt-1 ${c.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {(summary?.totalPnlPercent || 0).toFixed(2)}% all time
+              </div>
+            )}
           </div>
         ))}
       </div>
-      <div className="card p-0 overflow-hidden">
-        <div className="px-5 py-4 border-b border-border font-semibold text-sm">Holdings ({holdings.length})</div>
-        {holdings.length === 0 ? (
-          <div className="text-center py-12 text-[#4a5580] text-sm">No holdings yet. <a href="/trading" className="text-[#00d084] hover:underline">Start trading →</a></div>
-        ) : (
-          <table className="data-table">
-            <thead><tr><th>Stock</th><th className="text-right">Qty</th><th className="text-right">Avg Price</th><th className="text-right">LTP</th><th className="text-right">Current Value</th><th className="text-right">P&L</th><th className="text-right">Returns</th></tr></thead>
-            <tbody>
+
+      {/* Holdings List */}
+      <div className="px-2 md:px-0">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-3 md:px-5 py-3 md:py-4 border-b border-gray-200">
+            <span className="font-semibold text-sm md:text-base">Holdings ({holdings.length})</span>
+          </div>
+          
+          {holdings.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 text-sm">
+              No holdings yet. <a href="/trading" className="text-[#00d084] hover:underline">Start trading →</a>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
               {holdings.map(h => (
-                <tr key={h.symbol}>
-                  <td><span className="font-medium text-xs">{h.symbol}</span></td>
-                  <td className="text-right text-xs">{h.quantity}</td>
-                  <td className="text-right text-xs">₹{h.avgBuyPrice?.toFixed(2)}</td>
-                  <td className="text-right text-xs font-semibold">₹{h.currentPrice?.toFixed(2)}</td>
-                  <td className="text-right text-xs">₹{h.currentValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                  <td className={`text-right text-xs font-medium ${h.pnl >= 0 ? 'text-[#00d084]' : 'text-[#ff4f6a]'}`}>
-                    {h.pnl >= 0 ? '+' : ''}₹{Math.abs(h.pnl || 0).toFixed(0)}
-                  </td>
-                  <td className="text-right">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${h.pnlPercent >= 0 ? 'bg-[#00d084]/10 text-[#00d084]' : 'bg-[#ff4f6a]/10 text-[#ff4f6a]'}`}>
-                      {h.pnlPercent >= 0 ? '+' : ''}{(h.pnlPercent || 0).toFixed(1)}%
-                    </span>
-                  </td>
-                </tr>
+                <div key={h.symbol} className="p-3 md:p-4">
+                  {/* Mobile Card Layout - Default */}
+                  <div className="md:hidden">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-bold text-base">{h.symbol}</h3>
+                        <div className="text-xs text-gray-500">Qty: {h.quantity}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold">₹{h.currentPrice?.toFixed(2)}</div>
+                        <div className={`text-xs font-semibold ${h.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {h.pnl >= 0 ? '+' : ''}₹{Math.abs(h.pnl || 0).toFixed(0)}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-100">
+                      <div>
+                        <span className="text-gray-500">Avg Price:</span>
+                        <div className="font-medium">₹{h.avgBuyPrice?.toFixed(2)}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Current Value:</span>
+                        <div className="font-medium">₹{h.currentValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Returns:</span>
+                        <div className={`font-medium ${h.pnlPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {(h.pnlPercent || 0).toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Desktop Table Layout - Hidden on mobile */}
+                  <div className="hidden md:block">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500">
+                          <th className="pb-3 font-medium">Stock</th>
+                          <th className="pb-3 text-right font-medium">Qty</th>
+                          <th className="pb-3 text-right font-medium">Avg Price</th>
+                          <th className="pb-3 text-right font-medium">LTP</th>
+                          <th className="pb-3 text-right font-medium">Current Value</th>
+                          <th className="pb-3 text-right font-medium">P&L</th>
+                          <th className="pb-3 text-right font-medium">Returns</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="py-3">
+                            <span className="font-medium">{h.symbol}</span>
+                          </td>
+                          <td className="py-3 text-right">{h.quantity}</td>
+                          <td className="py-3 text-right">₹{h.avgBuyPrice?.toFixed(2)}</td>
+                          <td className="py-3 text-right font-semibold">₹{h.currentPrice?.toFixed(2)}</td>
+                          <td className="py-3 text-right">₹{h.currentValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                          <td className="py-3 text-right">
+                            <div className={`font-medium ${h.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {h.pnl >= 0 ? '+' : ''}₹{Math.abs(h.pnl || 0).toFixed(0)}
+                            </div>
+                          </td>
+                          <td className="py-3 text-right">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${h.pnlPercent >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {h.pnlPercent >= 0 ? '+' : ''}{(h.pnlPercent || 0).toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
+            </div>
+          )}
+        </div>
       </div>
+
+      <BottomNav />
     </div>
   );
 }
@@ -61,6 +134,7 @@ export function PortfolioPage() {
 // ─── ORDERS PAGE ───────────────────────────────────────────
 import { useState } from 'react';
 import { orderAPI } from '../api';
+import BottomNav from '../components/BottomNav';
 
 export function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('');
@@ -72,38 +146,111 @@ export function OrdersPage() {
   const orders = data?.data?.data || [];
 
   return (
-    <div className="animate-slide-up">
-      <div className="card p-0 overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <span className="font-semibold text-sm">Order History</span>
-          <div className="flex gap-1 bg-bg-tertiary p-1 rounded-lg">
-            {[['', 'All'], ['COMPLETE', 'Done'], ['PENDING', 'Pending'], ['CANCELLED', 'Cancelled']].map(([v, l]) => (
-              <button key={v} onClick={() => setStatusFilter(v)} className={`px-3 py-1.5 text-xs rounded-md transition-all ${statusFilter === v ? 'bg-bg-secondary text-white font-medium' : 'text-[#8b9cc8]'}`}>{l}</button>
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-4 animate-slide-up">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-3 md:px-4 py-3 sticky top-0 z-10 safe-area-top">
+        <h1 className="text-lg md:text-xl font-bold text-gray-900 mb-3">Orders</h1>
+        
+        {/* Filter Tabs - Swipeable */}
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+          {[
+            ['', 'All'], 
+            ['COMPLETE', 'Done'], 
+            ['PENDING', 'Pending'], 
+            ['CANCELLED', 'Cancelled']
+          ].map(([v, l]) => (
+            <button 
+              key={v} 
+              onClick={() => setStatusFilter(v)} 
+              className={`px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium whitespace-nowrap transition-all active:scale-95 ${
+                statusFilter === v 
+                  ? 'bg-[#00d084] text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Orders List */}
+      <div className="p-2 md:p-4 space-y-2 md:space-y-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="w-8 h-8 border-2 border-[#00d084] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-sm mb-2">No orders found</div>
+            <button 
+              onClick={() => window.location.href = '/stocks'}
+              className="text-[#00d084] font-medium text-sm"
+            >
+              Start Trading
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2 md:space-y-3">
+            {orders.map(o => (
+              <div key={o._id} className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-gray-200">
+                {/* Order Header */}
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-base md:text-lg">{o.symbol}</h3>
+                      <span className={`text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full ${
+                        o.transactionType === 'BUY' 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {o.transactionType}
+                      </span>
+                      <span className={`text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full ${
+                        o.status === 'COMPLETE' ? 'badge-green' : 
+                        o.status === 'PENDING' ? 'badge-gold' : 'badge-gray'
+                      }`}>
+                        {o.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {new Date(o.createdAt).toLocaleString('en-IN', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        day: '2-digit',
+                        month: 'short'
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="text-base md:text-lg font-bold text-gray-900">
+                      ₹{o.totalAmount?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {o.quantity} @ ₹{o.executedPrice?.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Details Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs md:text-sm pt-2 border-t border-gray-100">
+                  <div>
+                    <span className="text-gray-500">Order ID:</span>
+                    <span className="ml-2 font-mono text-[10px] md:text-xs">{o.orderId?.slice(-8)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-gray-500">Product:</span>
+                    <span className="ml-2 font-medium">{o.productType || 'CNC'}</span>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-        {isLoading ? <div className="p-8 text-center text-[#4a5580]">Loading...</div> : (
-          <table className="data-table">
-            <thead><tr><th>Order ID</th><th>Stock</th><th>Type</th><th className="text-right">Qty</th><th className="text-right">Price</th><th className="text-right">Total</th><th>Status</th><th className="text-right">Time</th></tr></thead>
-            <tbody>
-              {orders.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-[#4a5580]">No orders found</td></tr>
-              ) : orders.map(o => (
-                <tr key={o._id}>
-                  <td className="text-[10px] text-[#4a5580] font-mono">{o.orderId?.slice(-8)}</td>
-                  <td className="font-medium text-xs">{o.symbol}</td>
-                  <td><span className={`text-[10px] px-2 py-0.5 rounded-full ${o.transactionType === 'BUY' ? 'bg-[#00d084]/10 text-[#00d084]' : 'bg-[#ff4f6a]/10 text-[#ff4f6a]'}`}>{o.transactionType}</span></td>
-                  <td className="text-right text-xs">{o.quantity}</td>
-                  <td className="text-right text-xs">₹{o.executedPrice?.toFixed(2)}</td>
-                  <td className="text-right text-xs font-medium">₹{o.totalAmount?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                  <td><span className={`text-[10px] px-1.5 py-0.5 rounded-full ${o.status === 'COMPLETE' ? 'badge-green' : o.status === 'PENDING' ? 'badge-gold' : 'badge-gray'}`}>{o.status}</span></td>
-                  <td className="text-right text-[10px] text-[#4a5580]">{new Date(o.createdAt).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
       </div>
+
+      <BottomNav />
     </div>
   );
 }
