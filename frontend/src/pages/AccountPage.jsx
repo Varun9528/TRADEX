@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { auth } from '../api';
+import { userAPI } from '../api';
 import toast from 'react-hot-toast';
 import BottomNav from '../components/BottomNav';
 import { User, Mail, Phone, Shield, Bell, LogOut, Camera } from 'lucide-react';
@@ -17,7 +17,7 @@ export default function AccountPage() {
 
   const updateProfile = useMutation({
     mutationFn: async (data) => {
-      const { data: response } = await auth.updateProfile(data);
+      const { data: response } = await userAPI.updateProfile(data);
       return response;
     },
     onSuccess: (res) => {

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { protect: auth } = require('../middleware/auth');
 const Order = require('../models/Order');
 const Position = require('../models/Position');
 const Stock = require('../models/Stock');
