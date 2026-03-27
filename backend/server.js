@@ -25,6 +25,8 @@ const watchlistRoutes = require('./routes/watchlist');
 const orderRoutes = require('./routes/orders');
 const positionRoutes = require('./routes/positions');
 const adminRoutes = require('./routes/admin');
+const adminWalletRoutes = require('./routes/adminWallet');
+const adminUsersRoutes = require('./routes/adminUsers');
 const notificationRoutes = require('./routes/notifications');
 
 const app = express();
@@ -130,6 +132,8 @@ app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/positions', positionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminWalletRoutes);
+app.use('/api/admin', adminUsersRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // ── HEALTH CHECK ──

@@ -20,6 +20,15 @@ const fundRequestSchema = new mongoose.Schema({
     required: true
   },
   
+  // Payment Details
+  upiId: {
+    type: String,
+    trim: true
+  },
+  bankName: String,
+  accountNumber: String,
+  ifscCode: String,
+  
   transactionReference: {
     type: String,
     required: true,
