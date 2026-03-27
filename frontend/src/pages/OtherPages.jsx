@@ -4,29 +4,67 @@ import { tradeAPI } from '../api';
 import BottomNav from '../components/BottomNav';
 
 export function PortfolioPage() {
-  const { data, isLoading } = useQuery({ queryKey: ['holdings'], queryFn: () => tradeAPI.getHoldings() });
-  const holdings = data?.data?.data?.holdings || [];
-  const summary = data?.data?.data?.summary;
+  const { data, isLoading, error } = useQuery({ 
+    queryKey: ['portfolio'], 
+    queryFn: async () => {
+      try {
+        const { data } = await tradeAPI.getPortfolio();
+        return data;
+      } catch (err) {
+        console.error('[Portfolio] Error:', err);
+        throw err;
+      }
+    },
+    refetchInterval: 3000, // Update every 3 seconds
+  });
+  
+  const holdings = data?.data?.holdings || [];
+  const summary = data?.data?.summary;
   const pnl = summary?.totalPnl || 0;
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-[#00d084] border-t-transparent rounded-full animate-spin" /></div>;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-text-secondary text-sm">Loading portfolio...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-accent-red mb-4">Failed to load portfolio</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="btn-primary px-6 py-2"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-4 space-y-4 md:space-y-5 animate-slide-up">
-      {/* Summary Cards - Responsive Grid */}
+    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4 space-y-4 md:space-y-5 animate-slide-up">
+      {/* Summary Cards - Zerodha Style */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 px-2 md:px-0">
         {[
           { label: 'Invested', val: `₹${(summary?.totalInvested || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
           { label: 'Current Value', val: `₹${(summary?.totalCurrentValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
           { label: 'Total P&L', val: `${pnl >= 0 ? '+' : ''}₹${Math.abs(pnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, pnl },
         ].map(c => (
-          <div key={c.label} className="bg-white rounded-lg p-3 md:p-5 shadow-sm border border-gray-200">
-            <div className="text-[10px] md:text-xs text-gray-500 mb-1">{c.label}</div>
-            <div className={`text-lg md:text-xl font-bold ${c.pnl !== undefined ? (c.pnl >= 0 ? 'text-green-600' : 'text-red-600') : ''}`}>
+          <div key={c.label} className="bg-bg-card rounded-lg p-3 md:p-5 shadow-sm border border-border">
+            <div className="text-[10px] md:text-xs text-text-secondary mb-1">{c.label}</div>
+            <div className={`text-lg md:text-xl font-bold ${c.pnl !== undefined ? (c.pnl >= 0 ? 'text-brand-green' : 'text-accent-red') : ''}`}>
               {c.val}
             </div>
             {c.pnl !== undefined && (
-              <div className={`text-[10px] md:text-xs mt-1 ${c.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`text-[10px] md:text-xs mt-1 ${c.pnl >= 0 ? 'text-brand-green' : 'text-accent-red'}`}>
                 {(summary?.totalPnlPercent || 0).toFixed(2)}% all time
               </div>
             )}
@@ -36,46 +74,46 @@ export function PortfolioPage() {
 
       {/* Holdings List */}
       <div className="px-2 md:px-0">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-3 md:px-5 py-3 md:py-4 border-b border-gray-200">
-            <span className="font-semibold text-sm md:text-base">Holdings ({holdings.length})</span>
+        <div className="bg-bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+          <div className="px-3 md:px-5 py-3 md:py-4 border-b border-border">
+            <span className="font-semibold text-sm md:text-base text-text-primary">Holdings ({holdings.length})</span>
           </div>
           
           {holdings.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-sm">
-              No holdings yet. <a href="/trading" className="text-[#00d084] hover:underline">Start trading →</a>
+            <div className="text-center py-12 text-text-muted text-sm">
+              No holdings yet. <a href="/trading" className="text-brand-blue hover:underline">Start trading →</a>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-border">
               {holdings.map(h => (
                 <div key={h.symbol} className="p-3 md:p-4">
                   {/* Mobile Card Layout - Default */}
                   <div className="md:hidden">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h3 className="font-bold text-base">{h.symbol}</h3>
-                        <div className="text-xs text-gray-500">Qty: {h.quantity}</div>
+                        <h3 className="font-bold text-base text-text-primary">{h.symbol}</h3>
+                        <div className="text-xs text-text-secondary">Qty: {h.quantity}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold">₹{h.currentPrice?.toFixed(2)}</div>
-                        <div className={`text-xs font-semibold ${h.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="text-lg font-bold text-text-primary">₹{Number(h.currentPrice || 0).toFixed(2)}</div>
+                        <div className={`text-xs font-semibold ${h.pnl >= 0 ? 'text-brand-green' : 'text-accent-red'}`}>
                           {h.pnl >= 0 ? '+' : ''}₹{Math.abs(h.pnl || 0).toFixed(0)}
                         </div>
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-100">
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-border">
                       <div>
-                        <span className="text-gray-500">Avg Price:</span>
-                        <div className="font-medium">₹{h.avgBuyPrice?.toFixed(2)}</div>
+                        <span className="text-text-secondary">Avg Price:</span>
+                        <div className="font-medium text-text-primary">₹{Number(h.avgBuyPrice || 0).toFixed(2)}</div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Current Value:</span>
-                        <div className="font-medium">₹{h.currentValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                        <span className="text-text-secondary">Current Value:</span>
+                        <div className="font-medium text-text-primary">₹{h.currentValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Returns:</span>
-                        <div className={`font-medium ${h.pnlPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="text-text-secondary">Returns:</span>
+                        <div className={`font-medium ${h.pnlPercent >= 0 ? 'text-brand-green' : 'text-accent-red'}`}>
                           {(h.pnlPercent || 0).toFixed(1)}%
                         </div>
                       </div>
@@ -86,7 +124,7 @@ export function PortfolioPage() {
                   <div className="hidden md:block">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-xs text-gray-500">
+                        <tr className="text-left text-xs text-text-muted">
                           <th className="pb-3 font-medium">Stock</th>
                           <th className="pb-3 text-right font-medium">Qty</th>
                           <th className="pb-3 text-right font-medium">Avg Price</th>
@@ -99,14 +137,14 @@ export function PortfolioPage() {
                       <tbody>
                         <tr>
                           <td className="py-3">
-                            <span className="font-medium">{h.symbol}</span>
+                            <span className="font-medium text-text-primary">{h.symbol}</span>
                           </td>
-                          <td className="py-3 text-right">{h.quantity}</td>
-                          <td className="py-3 text-right">₹{h.avgBuyPrice?.toFixed(2)}</td>
-                          <td className="py-3 text-right font-semibold">₹{h.currentPrice?.toFixed(2)}</td>
-                          <td className="py-3 text-right">₹{h.currentValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                          <td className="py-3 text-right text-text-primary">{h.quantity}</td>
+                          <td className="py-3 text-right text-text-primary">₹{Number(h.avgBuyPrice || 0).toFixed(2)}</td>
+                          <td className="py-3 text-right font-semibold text-text-primary">₹{Number(h.currentPrice || 0).toFixed(2)}</td>
+                          <td className="py-3 text-right text-text-primary">₹{h.currentValue?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
                           <td className="py-3 text-right">
-                            <div className={`font-medium ${h.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <div className={`font-medium ${h.pnl >= 0 ? 'text-brand-green' : 'text-accent-red'}`}>
                               {h.pnl >= 0 ? '+' : ''}₹{Math.abs(h.pnl || 0).toFixed(0)}
                             </div>
                           </td>
@@ -144,13 +182,23 @@ export function OrdersPage() {
   });
   const orders = data?.data?.data || [];
 
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-bg-primary pb-20 md:pb-4 animate-slide-up">
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-4 animate-slide-up">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-3 md:px-4 py-3 sticky top-0 z-10 safe-area-top">
-        <h1 className="text-lg md:text-xl font-bold text-gray-900 mb-3">Orders</h1>
+    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4 animate-slide-up">
+      {/* Header - Zerodha Style */}
+      <div className="bg-bg-card border-b border-border px-3 md:px-4 py-3 sticky top-0 z-10 safe-area-top">
+        <h1 className="text-lg md:text-xl font-bold text-text-primary mb-3">Orders</h1>
         
-        {/* Filter Tabs - Swipeable */}
+        {/* Filter Tabs */}
         <div className="flex gap-1 overflow-x-auto scrollbar-hide">
           {[
             ['', 'All'], 
@@ -161,10 +209,10 @@ export function OrdersPage() {
             <button 
               key={v} 
               onClick={() => setStatusFilter(v)} 
-              className={`px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium whitespace-nowrap transition-all active:scale-95 ${
+              className={`px-3 md:px-4 py-1.5 rounded-lg text-xs md:text-sm font-medium whitespace-nowrap transition-all active:scale-95 ${
                 statusFilter === v 
-                  ? 'bg-[#00d084] text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-brand-blue text-white' 
+                  : 'bg-gray-50 text-text-secondary hover:bg-gray-100 border border-border'
               }`}
             >
               {l}
@@ -177,27 +225,27 @@ export function OrdersPage() {
       <div className="p-2 md:p-4 space-y-2 md:space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="w-8 h-8 border-2 border-[#00d084] border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-gray-400 text-sm mb-2">No orders found</div>
+            <div className="text-text-muted text-sm mb-2">No orders found</div>
             <button 
               onClick={() => window.location.href = '/stocks'}
-              className="text-[#00d084] font-medium text-sm"
+              className="text-brand-blue font-medium text-sm hover:underline"
             >
               Start Trading
             </button>
           </div>
         ) : (
           <div className="space-y-2 md:space-y-3">
-            {orders.map(o => (
-              <div key={o._id} className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-gray-200">
+            {(orders || []).map(o => (
+              <div key={o._id} className="bg-bg-card rounded-lg p-3 md:p-4 shadow-sm border border-border">
                 {/* Order Header */}
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-base md:text-lg">{o.symbol}</h3>
+                      <h3 className="font-bold text-base md:text-lg text-text-primary">{o.symbol}</h3>
                       <span className={`text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 rounded-full ${
                         o.transactionType === 'BUY' 
                           ? 'bg-green-100 text-green-700' 
@@ -212,8 +260,8 @@ export function OrdersPage() {
                         {o.status}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {new Date(o.createdAt).toLocaleString('en-IN', { 
+                    <div className="text-xs text-text-secondary mt-1">
+                      {new Date(o.createdAt || Date.now()).toLocaleString('en-IN', { 
                         hour: '2-digit', 
                         minute: '2-digit',
                         day: '2-digit',
@@ -223,24 +271,24 @@ export function OrdersPage() {
                   </div>
                   
                   <div className="text-right">
-                    <div className="text-base md:text-lg font-bold text-gray-900">
-                      ₹{o.totalAmount?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    <div className="text-base md:text-lg font-bold text-text-primary">
+                      ₹{Number(o.totalAmount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {o.quantity} @ ₹{o.executedPrice?.toFixed(2)}
+                    <div className="text-xs text-text-secondary">
+                      {o.quantity || 0} @ ₹{Number(o.executedPrice || 0).toFixed(2)}
                     </div>
                   </div>
                 </div>
 
                 {/* Order Details Grid */}
-                <div className="grid grid-cols-2 gap-2 text-xs md:text-sm pt-2 border-t border-gray-100">
+                <div className="grid grid-cols-2 gap-2 text-xs md:text-sm pt-2 border-t border-border">
                   <div>
-                    <span className="text-gray-500">Order ID:</span>
-                    <span className="ml-2 font-mono text-[10px] md:text-xs">{o.orderId?.slice(-8)}</span>
+                    <span className="text-text-secondary">Order ID:</span>
+                    <span className="ml-2 font-mono text-[10px] md:text-xs text-text-primary">{o.orderId?.slice(-8)}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-gray-500">Product:</span>
-                    <span className="ml-2 font-medium">{o.productType || 'CNC'}</span>
+                    <span className="text-text-secondary">Product:</span>
+                    <span className="ml-2 font-medium text-text-primary">{o.productType || 'CNC'}</span>
                   </div>
                 </div>
               </div>

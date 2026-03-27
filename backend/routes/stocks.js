@@ -5,6 +5,7 @@ const express = require('express');
 const stockRouter = express.Router();
 const Stock = require('../models/Stock');
 const { protect } = require('../middleware/auth');
+const marketService = require('../utils/marketService');
 
 stockRouter.use(protect);
 
@@ -41,6 +42,40 @@ stockRouter.get('/:symbol/history', async (req, res) => {
     const stock = await Stock.findOne({ symbol: req.params.symbol.toUpperCase() }).select('symbol priceHistory currentPrice');
     if (!stock) return res.status(404).json({ success: false, message: 'Stock not found.' });
     res.json({ success: true, data: { symbol: stock.symbol, history: stock.priceHistory } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// NEW: GET /api/stocks/live-price/:symbol - Real-time price from TwelveData
+stockRouter.get('/live-price/:symbol', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const priceData = await marketService.getRealtimePrice(symbol);
+    res.json({ success: true, data: priceData });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// NEW: GET /api/stocks/candles/:symbol - Historical candlestick data
+stockRouter.get('/candles/:symbol', async (req, res) => {
+  try {
+    const { interval = '1min', outputsize = 50 } = req.query;
+    const symbol = req.params.symbol.toUpperCase();
+    const candles = await marketService.getCandles(symbol, interval, outputsize);
+    res.json({ success: true, data: candles });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// NEW: GET /api/stocks/quote/:symbol - Detailed quote data
+stockRouter.get('/quote/:symbol', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const quoteData = await marketService.getQuote(symbol);
+    res.json({ success: true, data: quoteData });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

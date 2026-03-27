@@ -12,6 +12,7 @@ require('dotenv').config();
 const logger = require('./utils/logger');
 const { connectDB } = require('./config/database');
 const { initPriceEngine } = require('./utils/priceEngine');
+const { initializePriceUpdateJob } = require('./utils/priceUpdateJob');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -29,23 +30,12 @@ const notificationRoutes = require('./routes/notifications');
 const app = express();
 const server = http.createServer(app);
 
-// ── SOCKET.IO ──
-const io = new Server(server, {
-  cors: { origin: process.env.FRONTEND_URL || 'http://localhost:3000', methods: ['GET', 'POST'] }
-});
-
-// Attach io to app so routes can access it
-app.set('io', io);
-
-// ── SECURITY MIDDLEWARE ──
-app.use(helmet({ crossOriginEmbedderPolicy: false }));
-
-// Explicitly handle OPTIONS preflight requests
-app.options('*', cors());
-
-// CORS Configuration - Support multiple origins including Vercel production
+// ── CORS CONFIGURATION ──
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3001',      // Vite dev server
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
   'http://localhost:5173',
   'https://frontend-three-gamma-ahre3jjli0.vercel.app',
   'https://frontend-41c5beyxm-varun-tiroles-projects.vercel.app',
@@ -58,10 +48,37 @@ if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
 
+// Development mode - allow all localhost ports
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// ── SOCKET.IO ──
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Attach io to app so routes can access it
+app.set('io', io);
+
+// ── SECURITY MIDDLEWARE ──
+app.use(helmet({ crossOriginEmbedderPolicy: false }));
+
+// Explicitly handle OPTIONS preflight requests
+app.options('*', cors());
+
+// CORS middleware uses allowedOrigins defined above
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+    
+    // In development mode, allow all localhost origins
+    if (isDevelopment && origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))) {
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -168,15 +185,42 @@ io.on('connection', (socket) => {
   });
 });
 
-// ── START SERVER ──
+// ── START SERVER — with automatic port fallback
 const PORT = process.env.PORT || 5000;
 
 async function start() {
   await connectDB();
-  initPriceEngine(io);
-  server.listen(PORT, () => {
-    logger.info(`TradeX API running on port ${PORT} [${process.env.NODE_ENV}]`);
-  });
+  
+  // Initialize price engine only once
+  if (!global.priceEngineInitialized) {
+    initPriceEngine(io);
+    global.priceEngineInitialized = true;
+    logger.info('[Server] Price engine initialized');
+  }
+  
+  // Initialize TwelveData price update job only once
+  if (!global.priceJobStarted) {
+    initializePriceUpdateJob(io);
+    global.priceJobStarted = true;
+    logger.info('[Server] Price update job scheduled');
+  }
+  
+  // Try to start server, if port in use try next one
+  const startServer = (portToTry) => {
+    server.listen(portToTry, () => {
+      logger.info(`TradeX API running on port ${portToTry} [${process.env.NODE_ENV}]`);
+    }).on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.warn(`Port ${portToTry} is in use, trying ${portToTry + 1}`);
+        startServer(portToTry + 1);
+      } else {
+        logger.error('Server error:', err);
+        process.exit(1);
+      }
+    });
+  };
+  
+  startServer(PORT);
 }
 
 start().catch((err) => {

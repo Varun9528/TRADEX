@@ -21,7 +21,9 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     enum: ['KYC_APPROVED', 'KYC_REJECTED', 'ORDER_PLACED', 'ORDER_EXECUTED', 'ORDER_CANCELLED',
            'DEPOSIT_SUCCESS', 'WITHDRAWAL_SUCCESS', 'WITHDRAWAL_REJECTED', 'PRICE_ALERT',
-           'REFERRAL_BONUS', 'SYSTEM', 'DIVIDEND'],
+           'REFERRAL_BONUS', 'SYSTEM', 'DIVIDEND', 'FUND_REQUEST_SUBMITTED', 'FUND_REQUEST_APPROVED',
+           'FUND_REQUEST_REJECTED', 'WITHDRAW_REQUEST_SUBMITTED', 'WITHDRAW_REQUEST_APPROVED',
+           'WITHDRAW_REQUEST_REJECTED'],
     required: true
   },
   title: { type: String, required: true },

@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './context/authStore';
 import { SocketProvider } from './context/SocketContext';
@@ -35,23 +34,27 @@ import AdminKYC from './pages/admin/AdminKYC';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminWallet from './pages/admin/AdminWallet';
 import AdminStocks from './pages/admin/AdminStocks';
+import AdminFundRequests from './pages/admin/AdminFundRequests';
+import AdminWithdrawRequests from './pages/admin/AdminWithdrawRequests';
+import AdminTrades from './pages/admin/AdminTrades';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, staleTime: 30000, refetchOnWindowFocus: false },
-  }
-});
+// ─── AUTH PROTECTED ROUTES ─────────────────────────────────
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isAuthenticated, isLoading, user } = useAuthStore();
-  if (isLoading) return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 border-2 border-brand-green border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-[#8b9cc8] text-sm">Loading TradeX...</p>
+  
+  // Show loader only during initial auth check (max 2 seconds)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center" style={{ pointerEvents: 'auto' }}>
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-brand-green border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#8b9cc8] text-sm">Loading TradeX...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+  
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (adminOnly && user?.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return children;
@@ -59,7 +62,12 @@ function ProtectedRoute({ children, adminOnly = false }) {
 
 function PublicRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuthStore();
-  if (isLoading) return null;
+  
+  // Don't block rendering for public routes
+  if (isLoading) {
+    return null; // Return null instead of blocking overlay
+  }
+  
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
   return children;
 }
@@ -69,10 +77,14 @@ export default function App() {
   useEffect(() => { initialize(); }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SocketProvider>
-        <BrowserRouter>
-          <Routes>
+    <SocketProvider>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
+        <Routes>
             {/* Public Pages */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/features" element={<FeaturesPage />} />
@@ -103,6 +115,9 @@ export default function App() {
 
               {/* Admin */}
               <Route path="admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+              <Route path="admin/fund-requests" element={<ProtectedRoute adminOnly><AdminFundRequests /></ProtectedRoute>} />
+              <Route path="admin/withdraw-requests" element={<ProtectedRoute adminOnly><AdminWithdrawRequests /></ProtectedRoute>} />
+              <Route path="admin/trades" element={<ProtectedRoute adminOnly><AdminTrades /></ProtectedRoute>} />
               <Route path="admin/kyc" element={<ProtectedRoute adminOnly><AdminKYC /></ProtectedRoute>} />
               <Route path="admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
               <Route path="admin/wallet" element={<ProtectedRoute adminOnly><AdminWallet /></ProtectedRoute>} />
@@ -112,16 +127,18 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: { background: '#1a2235', color: '#f0f4ff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
-            success: { iconTheme: { primary: '#00d084', secondary: '#022b1d' } },
-            error: { iconTheme: { primary: '#ff4f6a', secondary: '#fff' } },
-          }}
-        />
-      </SocketProvider>
-    </QueryClientProvider>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1a202c',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+          },
+          success: { iconTheme: { primary: '#00d084', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ff4f6a', secondary: '#fff' } },
+        }}
+      />
+    </SocketProvider>
   );
 }

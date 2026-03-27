@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Order } = require('../models/Order');
 const { protect } = require('../middleware/auth');
+const { normalizeSymbol } = require('../utils/symbols');
 
 router.use(protect);
 
@@ -12,7 +13,7 @@ router.get('/', async (req, res) => {
     const filter = { user: req.user._id };
     if (status) filter.status = status.toUpperCase();
     if (type) filter.transactionType = type.toUpperCase();
-    if (symbol) filter.symbol = symbol.toUpperCase();
+    if (symbol) filter.symbol = normalizeSymbol(symbol);  // ✅ Normalize symbol for consistent lookup
     if (from || to) {
       filter.createdAt = {};
       if (from) filter.createdAt.$gte = new Date(from);

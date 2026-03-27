@@ -46,9 +46,12 @@ router.post('/:symbol/close', auth, async (req, res) => {
     }
 
     const closeQty = quantity || position.quantity;
-    const sellValue = closeQty * stock.price;
-    const buyValue = (closeQty / position.quantity) * position.investmentValue;
-    const pnl = sellValue - buyValue;
+    
+    // Use consistent price from stock or position snapshot
+    const executedPrice = stock.currentPrice || stock.price;
+    const sellValue = Number((closeQty * executedPrice).toFixed(2));
+    const buyValue = Number(((closeQty / position.quantity) * position.investmentValue).toFixed(2));
+    const pnl = Number((sellValue - buyValue).toFixed(2));
 
     // Update position
     position.sellQuantity += closeQty;
@@ -74,14 +77,21 @@ router.post('/:symbol/close', auth, async (req, res) => {
     
     await user.save();
 
-    // Create transaction
-    const Transaction = require('../models/Transaction');
+    // Create transaction for P&L settlement
+    const { Transaction } = require('../models/Transaction');
+    const balanceBefore = user.walletBalance - pnl;
+    const balanceAfter = user.walletBalance;
+    
     const transaction = new Transaction({
       user: user._id,
-      type: pnl >= 0 ? 'CREDIT' : 'DEBIT',
+      type: pnl >= 0 ? 'SELL_CREDIT' : 'BUY_DEBIT',
+      direction: pnl >= 0 ? 'CREDIT' : 'DEBIT',
       amount: Math.abs(pnl),
+      balanceBefore,
+      balanceAfter,
       description: `Square off ${symbol}: P&L ₹${pnl.toFixed(2)}`,
-      category: 'TRADE_PNL'
+      orderId: position.orderId,
+      reference: `SQUAREOFF-${symbol}-${Date.now()}`
     });
     await transaction.save();
 

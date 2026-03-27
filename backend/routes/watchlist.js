@@ -3,6 +3,7 @@ const router = express.Router();
 const { Watchlist } = require('../models/Watchlist');
 const Stock = require('../models/Stock');
 const { protect } = require('../middleware/auth');
+const { normalizeSymbol } = require('../utils/symbols');
 
 router.use(protect);
 
@@ -36,20 +37,20 @@ router.post('/add', async (req, res) => {
     const { symbol } = req.body;
     if (!symbol) return res.status(400).json({ success: false, message: 'Symbol required.' });
 
-    const stock = await Stock.findOne({ symbol: symbol.toUpperCase(), isActive: true });
+    const stock = await Stock.findOne({ symbol: normalizeSymbol(symbol), isActive: true });
     if (!stock) return res.status(404).json({ success: false, message: 'Stock not found.' });
 
     let watchlist = await Watchlist.findOne({ user: req.user._id });
     if (!watchlist) watchlist = new Watchlist({ user: req.user._id, stocks: [] });
 
-    const already = watchlist.stocks.find(s => s.symbol === symbol.toUpperCase());
+    const already = watchlist.stocks.find(s => s.symbol === normalizeSymbol(symbol));
     if (already) return res.status(409).json({ success: false, message: 'Stock already in watchlist.' });
 
     if (watchlist.stocks.length >= 50) {
       return res.status(400).json({ success: false, message: 'Watchlist limit is 50 stocks.' });
     }
 
-    watchlist.stocks.push({ symbol: symbol.toUpperCase(), stock: stock._id });
+    watchlist.stocks.push({ symbol: normalizeSymbol(symbol), stock: stock._id });
     await watchlist.save();
 
     res.json({ success: true, message: `${symbol} added to watchlist.` });
@@ -61,7 +62,7 @@ router.post('/add', async (req, res) => {
 // DELETE /api/watchlist/:symbol
 router.delete('/:symbol', async (req, res) => {
   try {
-    const sym = req.params.symbol.toUpperCase();
+    const sym = normalizeSymbol(req.params.symbol);
     const watchlist = await Watchlist.findOne({ user: req.user._id });
     if (!watchlist) return res.status(404).json({ success: false, message: 'Watchlist not found.' });
 
@@ -77,7 +78,7 @@ router.delete('/:symbol', async (req, res) => {
 // PATCH /api/watchlist/:symbol/alert — Set price alert
 router.patch('/:symbol/alert', async (req, res) => {
   try {
-    const sym = req.params.symbol.toUpperCase();
+    const sym = normalizeSymbol(req.params.symbol);
     const { alertPrice } = req.body;
 
     const watchlist = await Watchlist.findOne({ user: req.user._id });

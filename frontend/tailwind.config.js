@@ -4,25 +4,33 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Dark gradient theme with Zerodha-style accents
         bg: {
-          primary: '#0a0e1a',
-          secondary: '#111827',
-          tertiary: '#1a2235',
-          card: '#1f2d45',
+          primary: '#020617',
+          secondary: '#0f172a',
+          tertiary: '#111827',
+          card: '#1e293b',
         },
         brand: {
-          green: '#00d084',
-          'green-dark': '#00a86b',
+          blue: '#387ed1',
+          'blue-dark': '#2563eb',
+          green: '#10b981',
+          'green-dark': '#059669',
         },
         accent: {
-          red: '#ff4f6a',
+          red: '#ef4444',
           blue: '#3b82f6',
           gold: '#f59e0b',
           purple: '#8b5cf6',
         },
         border: {
-          DEFAULT: 'rgba(255,255,255,0.08)',
-          strong: 'rgba(255,255,255,0.14)',
+          DEFAULT: '#1f2937',
+          strong: '#374151',
+        },
+        text: {
+          primary: '#e5e7eb',
+          secondary: '#9ca3af',
+          muted: '#6b7280',
         }
       },
       fontFamily: {

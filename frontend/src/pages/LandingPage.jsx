@@ -50,9 +50,9 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-bg-primary text-[#f0f4ff] overflow-x-hidden">
+    <div className="min-h-screen bg-bg-primary text-[#f0f4ff] overflow-x-hidden" style={{ pointerEvents: 'auto' }}>
       {/* Gradient Background Orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#00d084]/10 rounded-full blur-3xl"></div>
         <div className="absolute top-1/2 -left-40 w-80 h-80 bg-emerald-400/10 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl"></div>

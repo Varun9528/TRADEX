@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { stockAPI, watchlistAPI } from '../api';
 import { useSocket } from '../context/SocketContext';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import BottomNav from '../components/BottomNav';
-import { TrendingUp, TrendingDown, Plus, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, X, Search, ChevronDown } from 'lucide-react';
 
 export default function WatchlistPage() {
+  const navigate = useNavigate();
   const [group, setGroup] = useState('all'); // all, gainers, losers
+  const [search, setSearch] = useState('');
   const socket = useSocket();
 
   const { data: watchlistData, isLoading, refetch } = useQuery({
@@ -20,6 +23,10 @@ export default function WatchlistPage() {
   });
 
   const watchlist = Array.isArray(watchlistData) ? watchlistData : [];
+
+  // Group stocks by index
+  const indices = ['Nifty 50', 'Nifty Bank', 'Major Indices'];
+  const [activeIndex, setActiveIndex] = useState('Nifty 50');
 
   const addToWatchlist = useMutation({
     mutationFn: async (symbol) => {
@@ -51,120 +58,112 @@ export default function WatchlistPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-4">
-      {/* Header - Sticky on mobile */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 safe-area-top">
-        <div className="px-4 py-3">
-          <h1 className="text-xl font-bold text-gray-900">Watchlist</h1>
-          
-          {/* Tabs - Swipeable */}
-          <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
-            {[
-              { id: 'all', label: 'All' },
-              { id: 'gainers', label: 'Gainers' },
-              { id: 'losers', label: 'Losers' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setGroup(tab.id)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all active:scale-95 ${
-                  group === tab.id
-                    ? 'bg-[#00d084] text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4">
+      {/* Header - Zerodha Mobile Style */}
+      <div className="bg-bg-secondary border-b border-border sticky top-0 z-10 safe-area-top">
+        {/* Top Bar */}
+        <div className="px-3 py-2.5 flex items-center justify-between">
+          <h1 className="text-sm font-semibold text-text-primary">Watchlist</h1>
+          <button className="p-1.5 hover:bg-bg-tertiary rounded transition-colors">
+            <ChevronDown size={16} className="text-text-secondary" />
+          </button>
+        </div>
+
+        {/* Index Tabs - Horizontal Scroll */}
+        <div className="flex gap-1.5 px-3 pb-2 overflow-x-auto scrollbar-hide border-b border-border">
+          {indices.map((index) => (
+            <button
+              key={index}
+              onClick={() => setActiveIndex(index)}
+              className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
+                activeIndex === index
+                  ? 'bg-brand-blue text-white'
+                  : 'bg-bg-card text-text-secondary hover:bg-bg-tertiary'
+              }`}
+            >
+              {index}
+            </button>
+          ))}
+        </div>
+
+        {/* Compact Search Bar */}
+        <div className="px-3 py-2">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              placeholder="Search by symbol or name"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-bg-card border border-border rounded-lg text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-brand-blue transition-colors"
+            />
           </div>
         </div>
       </div>
-
-      {/* Stock List - 2 column grid on mobile */}
-      <div className="p-3 md:p-4">
+  
+      {/* Stock List - Compact Zerodha Style */}
+      <div className="p-2">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="w-8 h-8 border-2 border-[#00d084] border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center justify-center h-48">
+            <div className="w-6 h-6 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filteredStocks.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-2">No stocks in watchlist</div>
+          <div className="text-center py-10">
+            <div className="text-text-muted text-xs mb-2">No stocks found</div>
             <button 
-              onClick={() => window.location.href = '/stocks'}
-              className="text-[#00d084] font-medium"
+              onClick={() => navigate('/trading')}
+              className="text-brand-blue text-xs font-medium hover:underline"
             >
               Browse Stocks
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="bg-bg-card border border-border rounded-lg overflow-hidden divide-y divide-border">
+            {/* Stock Items */}
             {filteredStocks.map((stock) => (
               <div
                 key={stock.symbol}
-                className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+                className="flex items-center justify-between px-3 py-2 hover:bg-bg-tertiary transition-colors cursor-pointer"
+                onClick={() => {
+                  console.log('[WatchlistPage] Navigating with symbol:', stock.symbol);
+                  navigate(`/trading?symbol=${stock.symbol}`);
+                }}
               >
-                {/* Stock Header */}
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-base md:text-lg">{stock.symbol}</h3>
-                    </div>
-                    <p className="text-xs text-gray-500 truncate">{stock.name}</p>
-                  </div>
-                  <button
-                    onClick={() => removeFromWatchlist.mutate(stock.symbol)}
-                    className="text-gray-400 hover:text-red-500 p-1 active:scale-125 transition-transform"
-                  >
-                    <X size={16} />
-                  </button>
+                {/* Left: Symbol Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-xs text-text-primary truncate">{stock.symbol}</div>
+                  <div className="text-[10px] text-text-muted truncate mt-0.5">{stock.name}</div>
                 </div>
 
-                {/* Price Info */}
-                <div className="flex justify-between items-end">
-                  <div>
-                    <div className="text-xl md:text-2xl font-bold text-gray-900">
-                      ₹{stock.price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    </div>
-                    <div className={`flex items-center gap-1 text-sm font-semibold ${
-                      stock.changePercent >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {stock.changePercent >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                      <span>₹{stock.change?.toFixed(2)} ({stock.changePercent?.toFixed(2)}%)</span>
-                    </div>
+                {/* Right: Price & Change */}
+                <div className="text-right ml-3">
+                  <div className="text-xs font-bold text-text-primary">
+                    ₹{stock.currentPrice?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className={`text-[10px] font-medium mt-0.5 flex items-center justify-end gap-1 ${
+                    stock.changePercent >= 0 ? 'text-brand-green' : 'text-accent-red'
+                  }`}>
+                    {stock.changePercent >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    <span>{stock.changePercent?.toFixed(2)}%</span>
                   </div>
                 </div>
 
-                {/* Quick Actions - Hide on small mobile */}
-                <div className="flex gap-2 mt-3 hidden sm:flex">
-                  <button
-                    onClick={() => {/* Add buy logic */}}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors active:scale-95"
-                  >
-                    Buy
-                  </button>
-                  <button
-                    onClick={() => {/* Add sell logic */}}
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors active:scale-95"
-                  >
-                    Sell
-                  </button>
-                </div>
-
-                {/* Mobile Quick View */}
-                <div className="sm:hidden mt-2">
-                  <button
-                    onClick={() => window.location.href = `/trading?symbol=${stock.symbol}`}
-                    className="w-full bg-[#00d084]/10 text-[#00d084] py-1.5 rounded-lg font-medium text-sm active:scale-95"
-                  >
-                    Trade
-                  </button>
-                </div>
+                {/* Remove Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFromWatchlist.mutate(stock.symbol);
+                  }}
+                  className="ml-2 text-text-muted hover:text-accent-red p-1"
+                >
+                  <X size={14} />
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
-
+  
       <BottomNav />
     </div>
   );

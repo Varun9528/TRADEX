@@ -6,7 +6,22 @@ const transactionSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: ['DEPOSIT', 'WITHDRAWAL', 'BUY_DEBIT', 'SELL_CREDIT', 'BROKERAGE', 'DIVIDEND', 'REFERRAL_BONUS', 'REFUND', 'ADJUSTMENT'],
+    enum: [
+      'DEPOSIT', 
+      'WITHDRAWAL', 
+      'BUY_DEBIT', 
+      'SELL_CREDIT', 
+      'BROKERAGE', 
+      'DIVIDEND', 
+      'REFERRAL_BONUS', 
+      'REFUND', 
+      'ADJUSTMENT',
+      'SHORT_SELL',
+      'BUY',
+      'SELL',
+      'DEBIT',
+      'CREDIT'
+    ],
     required: true
   },
   direction: { type: String, enum: ['CREDIT', 'DEBIT'], required: true },

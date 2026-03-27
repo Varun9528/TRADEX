@@ -109,11 +109,17 @@ export const stockAPI = {
   getOne: (symbol) => api.get(`/stocks/${symbol}`),
   getHistory: (symbol) => api.get(`/stocks/${symbol}/history`),
   getIndices: () => api.get('/stocks/meta/indices'),
+  // NEW: TwelveData integration
+  getLivePrice: (symbol) => api.get(`/stocks/live-price/${symbol}`),
+  getCandles: (symbol, interval = '1min', outputsize = 50) => 
+    api.get(`/stocks/candles/${symbol}`, { params: { interval, outputsize } }),
+  getQuote: (symbol) => api.get(`/stocks/quote/${symbol}`),
 };
 
 export const tradeAPI = {
   placeOrder: (data) => api.post('/trades/order', data),
   getOrders: (params) => api.get('/trades/orders', { params }),
+  getPortfolio: () => api.get('/trades/portfolio'),
   getHoldings: () => api.get('/trades/holdings'),
   cancelOrder: (orderId) => api.delete(`/trades/orders/${orderId}`),
   modifyOrder: (orderId, data) => api.put(`/trades/orders/${orderId}`, data),
@@ -127,9 +133,16 @@ export const positionAPI = {
 export const walletAPI = {
   getBalance: () => api.get('/wallet/balance'),
   getTransactions: (params) => api.get('/wallet/transactions', { params }),
-  addFunds: (data) => api.post('/wallet/add', data),
-  withdraw: (data) => api.post('/wallet/withdraw', data),
+  fundRequest: (data) => api.post('/wallet/fund-request', data),
+  withdrawRequest: (data) => api.post('/wallet/withdraw-request', data),
+  getFundRequests: () => api.get('/wallet/fund-requests'),
+  getWithdrawRequests: () => api.get('/wallet/withdraw-requests'),
   getWithdrawals: () => api.get('/wallet/withdrawals'),
+  // Admin actions
+  approveFundRequest: (id) => api.post(`/wallet/approve-fund-request/${id}`),
+  rejectFundRequest: (id, reason) => api.post(`/wallet/reject-fund-request/${id}`, { reason }),
+  approveWithdrawRequest: (id) => api.post(`/wallet/approve-withdraw-request/${id}`),
+  rejectWithdrawRequest: (id, reason) => api.post(`/wallet/reject-withdraw-request/${id}`, { reason }),
 };
 
 export const watchlistAPI = {
@@ -155,6 +168,8 @@ export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
   getUsers: (params) => api.get('/admin/users', { params }),
   updateUserStatus: (id, isActive) => api.patch(`/admin/users/${id}/status`, { isActive }),
+  updateUserTradingStatus: (id, tradingEnabled) => api.patch(`/admin/users/${id}/trading`, { tradingEnabled }),
+  placeTradeForUser: (data) => api.post('/admin/trade', data),
   getKYCList: (params) => api.get('/admin/kyc', { params }),
   getKYCDetail: (userId) => api.get(`/admin/kyc/${userId}`),
   reviewKYC: (userId, data) => api.patch(`/admin/kyc/${userId}/review`, data),
@@ -164,6 +179,17 @@ export const adminAPI = {
   setStockPrice: (symbol, price) => api.patch(`/admin/stocks/${symbol}/price`, { price }),
   getTransactions: (params) => api.get('/admin/transactions', { params }),
   broadcast: (data) => api.post('/admin/notifications/broadcast', data),
+  // Fund request management
+  getFundRequests: (params) => api.get('/admin/fund-requests', { params }),
+  approveFundRequest: (id) => api.put(`/admin/fund-request/${id}/approve`),
+  rejectFundRequest: (id) => api.put(`/admin/fund-request/${id}/reject`),
+  // Withdraw request management
+  getWithdrawRequests: (params) => api.get('/admin/withdraw-requests', { params }),
+  approveWithdrawRequest: (id) => api.put(`/admin/withdraw-request/${id}/approve`),
+  rejectWithdrawRequest: (id) => api.put(`/admin/withdraw-request/${id}/reject`),
+  // Trade monitoring
+  getTrades: (params) => api.get('/admin/trades', { params }),
+  getPositions: (params) => api.get('/admin/positions', { params }),
 };
 
 export default api;

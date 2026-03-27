@@ -21,7 +21,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-bg-secondary border-t border-border z-50 md:hidden safe-area-bottom">
       <div className="grid grid-cols-6 gap-0">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -33,8 +33,8 @@ export default function BottomNav() {
               to={item.path}
               className={`flex flex-col items-center justify-center py-2.5 px-0.5 transition-all active:scale-95 touch-manipulation ${
                 isActive 
-                  ? 'text-[#00d084]' 
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-brand-blue' 
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="mb-0.5" />

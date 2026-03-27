@@ -16,26 +16,41 @@ export function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-5 animate-slide-up">
+    <div className="w-full p-4 space-y-5 animate-slide-up">
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-2 h-2 rounded-full bg-[#ff4f6a]"></div>
-        <h2 className="text-sm font-semibold text-[#ff4f6a] uppercase tracking-wider">Admin Panel</h2>
+        <div className="w-2 h-2 rounded-full bg-[#ff4f6a] flex-shrink-0"></div>
+        <h2 className="text-sm font-semibold text-[#ff4f6a] uppercase tracking-wider truncate">Admin Panel</h2>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map(k => (
-          <div key={k.label} className="stat-card">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-[#8b9cc8]">{k.label}</span>
-              <k.icon size={14} className="text-[#4a5580]" />
-            </div>
-            <div className="text-2xl font-bold">{k.val}</div>
-            <div className="text-xs text-[#4a5580] mt-1">{k.sub}</div>
+      {/* Quick Links - Responsive Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+        <a href="/admin/fund-requests" className="card hover:bg-bg-tertiary transition-colors cursor-pointer min-w-0">
+          <div className="flex items-center gap-2">
+            <DollarSign size={18} className="text-brand-green flex-shrink-0" />
+            <span className="text-xs font-medium truncate">Fund Requests</span>
           </div>
-        ))}
+        </a>
+        <a href="/admin/withdraw-requests" className="card hover:bg-bg-tertiary transition-colors cursor-pointer min-w-0">
+          <div className="flex items-center gap-2">
+            <DollarSign size={18} className="text-accent-red flex-shrink-0" />
+            <span className="text-xs font-medium truncate">Withdraw Requests</span>
+          </div>
+        </a>
+        <a href="/admin/trades" className="card hover:bg-bg-tertiary transition-colors cursor-pointer min-w-0">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={18} className="text-brand-blue flex-shrink-0" />
+            <span className="text-xs font-medium truncate">Trade Monitor</span>
+          </div>
+        </a>
+        <a href="/admin/kyc" className="card hover:bg-bg-tertiary transition-colors cursor-pointer min-w-0">
+          <div className="flex items-center gap-2">
+            <FileCheck size={18} className="text-yellow-500 flex-shrink-0" />
+            <span className="text-xs font-medium truncate">KYC Approval</span>
+          </div>
+        </a>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-5">
+      <div className="grid lg:grid-cols-2 gap-5 w-full">
         <AdminKYCPanel />
         <AdminWithdrawalPanel />
       </div>
@@ -173,10 +188,23 @@ export function AdminKYC() {
 
 // ─── ADMIN USERS ──────────────────────────────────────────
 export function AdminUsers() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [kycFilter, setKycFilter] = useState('');
   const { data } = useQuery({ queryKey: ['admin-users', search, kycFilter], queryFn: () => adminAPI.getUsers({ search, kycStatus: kycFilter || undefined, limit: 30 }) });
   const users = data?.data?.data || [];
+
+  // Toggle trading status mutation
+  const toggleTradingMut = useMutation({
+    mutationFn: ({ userId, tradingEnabled }) => adminAPI.updateUserTradingStatus(userId, tradingEnabled),
+    onSuccess: (res, { tradingEnabled }) => {
+      qc.invalidateQueries(['admin-users']);
+      toast.success(`User trading ${tradingEnabled ? 'enabled' : 'disabled'}`);
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to update');
+    }
+  });
 
   return (
     <div className="animate-slide-up">
@@ -189,7 +217,7 @@ export function AdminUsers() {
       </div>
       <div className="card p-0 overflow-hidden">
         <table className="data-table">
-          <thead><tr><th>User</th><th>Mobile</th><th>Client ID</th><th>KYC</th><th className="text-right">Balance</th><th>Status</th><th className="text-right">Joined</th></tr></thead>
+          <thead><tr><th>User</th><th>Mobile</th><th>Client ID</th><th>KYC</th><th className="text-right">Balance</th><th>Trading</th><th>Status</th><th className="text-right">Joined</th></tr></thead>
           <tbody>
             {users.map(u => (
               <tr key={u._id}>
@@ -198,6 +226,19 @@ export function AdminUsers() {
                 <td className="text-xs font-mono text-[#8b9cc8]">{u.clientId}</td>
                 <td><span className={`text-[10px] ${u.kycStatus === 'approved' ? 'badge-green' : u.kycStatus === 'pending' ? 'badge-gold' : 'badge-gray'}`}>{u.kycStatus}</span></td>
                 <td className="text-right text-xs font-medium">₹{(u.walletBalance || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                <td>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={u.tradingEnabled !== false}
+                      onChange={(e) => toggleTradingMut.mutate({ userId: u._id, tradingEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="relative w-9 h-5 bg-bg-tertiary rounded-full peer peer-checked:bg-brand-blue transition-colors">
+                      <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                    </div>
+                  </label>
+                </td>
                 <td><span className={`text-[10px] ${u.isActive ? 'badge-green' : 'badge-red'}`}>{u.isActive ? 'Active' : 'Inactive'}</span></td>
                 <td className="text-right text-[10px] text-[#4a5580]">{new Date(u.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</td>
               </tr>

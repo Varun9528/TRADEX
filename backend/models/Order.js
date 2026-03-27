@@ -8,7 +8,7 @@ const orderSchema = new mongoose.Schema({
 
   orderType: { type: String, enum: ['MARKET', 'LIMIT', 'STOP_LOSS', 'STOP_LOSS_MARKET'], required: true },
   transactionType: { type: String, enum: ['BUY', 'SELL'], required: true },
-  productType: { type: String, enum: ['DELIVERY', 'INTRADAY', 'MTF'], default: 'DELIVERY' },
+  productType: { type: String, enum: ['MIS', 'CNC', 'MTF'], default: 'CNC' },
 
   quantity: { type: Number, required: true, min: 1 },
   price: { type: Number }, // For LIMIT orders
@@ -33,6 +33,13 @@ const orderSchema = new mongoose.Schema({
 
   orderId: { type: String, unique: true },
   parentOrderId: String,
+
+  // Additional fields for better tracking
+  side: { type: String, enum: ['BUY', 'SELL'] }, // Alias for transactionType
+  leverageUsed: { type: Number, default: 1 },
+  requiredMargin: { type: Number, default: 0 },
+  orderValue: { type: Number },
+  pnl: { type: Number, default: 0 }, // For SELL orders
 
   placedAt: { type: Date, default: Date.now },
   executedAt: Date,
@@ -59,7 +66,13 @@ orderSchema.pre('save', function (next) {
 const holdingSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   stock: { type: mongoose.Schema.Types.ObjectId, ref: 'Stock', required: true },
-  symbol: { type: String, required: true, uppercase: true },
+  symbol: { 
+    type: String, 
+    required: true, 
+    uppercase: true,  // ✅ Auto-uppercase
+    trim: true,       // ✅ Auto-trim whitespace
+    index: true
+  },
 
   quantity: { type: Number, required: true, min: 0 },
   avgBuyPrice: { type: Number, required: true },

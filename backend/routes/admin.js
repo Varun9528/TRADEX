@@ -3,7 +3,8 @@ const router = express.Router();
 const User = require('../models/User');
 const KYC = require('../models/KYC');
 const Stock = require('../models/Stock');
-const { Order } = require('../models/Order');
+const { Order, Holding } = require('../models/Order');
+const Position = require('../models/Position');
 const { Transaction, Withdrawal } = require('../models/Transaction');
 const { Notification } = require('../models/Watchlist');
 const { protect, adminOnly } = require('../middleware/auth');
@@ -84,6 +85,173 @@ router.patch('/users/:id/status', async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
     res.json({ success: true, message: `User ${isActive ? 'activated' : 'deactivated'}.`, data: user });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── PATCH /api/admin/users/:id/trading ── Enable/disable trading for user
+router.patch('/users/:id/trading', async (req, res) => {
+  try {
+    const { tradingEnabled } = req.body;
+    const user = await User.findByIdAndUpdate(req.params.id, { tradingEnabled }, { new: true });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+    
+    // Send notification to user
+    await Notification.create({
+      user: user._id,
+      type: 'SYSTEM',
+      title: tradingEnabled ? 'Trading Enabled' : 'Trading Disabled',
+      message: tradingEnabled 
+        ? 'Your trading has been enabled by admin. You can now place orders.'
+        : 'Your trading has been disabled by admin. You cannot place new orders.',
+      priority: 'HIGH'
+    });
+    
+    res.json({ success: true, message: `User trading ${tradingEnabled ? 'enabled' : 'disabled'}.`, data: user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── POST /api/admin/trade ── Admin places trade on behalf of user
+router.post('/trade', async (req, res) => {
+  try {
+    const { userId, symbol, quantity, price, transactionType = 'BUY', productType = 'CNC' } = req.body;
+    
+    // Get user
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    
+    // Get stock
+    const stock = await Stock.findOne({ symbol });
+    if (!stock) return res.status(404).json({ success: false, message: 'Stock not found' });
+    
+    const marketPrice = price || stock.currentPrice || stock.price;
+    const orderValue = quantity * marketPrice;
+    
+    // Create order
+    const order = new Order({
+      user: user._id,
+      stock: stock._id,
+      symbol,
+      quantity,
+      price: marketPrice,
+      orderType: 'MARKET',
+      productType,
+      transactionType,
+      side: transactionType,
+      status: 'COMPLETE',
+      executedPrice: marketPrice,
+      executedQty: quantity,
+      orderValue,
+      placedBy: 'ADMIN'
+    });
+    
+    await order.save();
+    
+    // Handle BUY or SELL
+    if (transactionType === 'SELL') {
+      // Check if user has position
+      const position = await Position.findOne({ 
+        userId: user._id, 
+        symbol, 
+        isClosed: false,
+        netQuantity: { $gt: 0 }
+      });
+      
+      if (!position || position.netQuantity < quantity) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Insufficient position. User has ${position?.netQuantity || 0} shares` 
+        });
+      }
+      
+      // Calculate P&L
+      const pnl = (marketPrice - position.averagePrice) * quantity;
+      
+      // Update position
+      position.sellQuantity += quantity;
+      position.netQuantity -= quantity;
+      
+      if (position.netQuantity === 0) {
+        position.isClosed = true;
+        position.closedAt = new Date();
+        position.totalPnl = pnl;
+      }
+      
+      await position.save();
+      
+      // Update user wallet
+      user.walletBalance += pnl;
+      await user.save();
+      
+      // Notify user
+      await Notification.create({
+        user: user._id,
+        type: 'TRADE',
+        title: 'Admin Placed SELL Order',
+        message: `Admin sold ${quantity} ${symbol} @ ₹${marketPrice}. P&L: ₹${pnl.toFixed(2)}`,
+        priority: 'MEDIUM'
+      });
+      
+      return res.json({
+        success: true,
+        message: 'Sell order placed successfully',
+        data: { order, position, pnl }
+      });
+    }
+    
+    // BUY transaction
+    let position = await Position.findOne({ userId: user._id, symbol, isClosed: false });
+    
+    if (!position) {
+      position = new Position({
+        userId: user._id,
+        stock: stock._id,
+        symbol,
+        quantity,
+        averagePrice: marketPrice,
+        currentPrice: marketPrice,
+        productType,
+        investmentValue: orderValue,
+        currentValue: orderValue,
+        buyQuantity: quantity,
+        sellQuantity: 0,
+        netQuantity: quantity,
+        transactionType: 'BUY',
+      });
+      await position.save();
+    } else {
+      const totalCost = (position.quantity * position.averagePrice) + (quantity * marketPrice);
+      const totalQty = position.quantity + quantity;
+      
+      position.quantity = totalQty;
+      position.averagePrice = totalCost / totalQty;
+      position.currentPrice = marketPrice;
+      position.investmentValue += orderValue;
+      position.currentValue = totalQty * marketPrice;
+      position.buyQuantity += quantity;
+      position.netQuantity += quantity;
+      
+      await position.save();
+    }
+    
+    // Notify user
+    await Notification.create({
+      user: user._id,
+      type: 'TRADE',
+      title: 'Admin Placed BUY Order',
+      message: `Admin bought ${quantity} ${symbol} @ ₹${marketPrice}`,
+      priority: 'MEDIUM'
+    });
+    
+    res.json({
+      success: true,
+      message: `Trade placed successfully for ${user.fullName}`,
+      data: { order, position }
+    });
+  } catch (err) {
+    console.error('[Admin Trade] Error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -319,6 +487,312 @@ router.post('/notifications/broadcast', async (req, res) => {
 
     req.app.get('io')?.emit('notification:broadcast', { title, message });
     res.json({ success: true, message: `Notification sent to ${users.length} users.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ───────────────────────────────────────────────
+// ── FUND REQUEST MANAGEMENT ───────────────────
+// ───────────────────────────────────────────────
+
+// GET /api/admin/fund-requests - All fund requests
+router.get('/fund-requests', async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    
+    const requests = await FundRequest.find(filter)
+      .populate('user', 'fullName email mobile clientId')
+      .sort({ createdAt: -1 })
+      .limit(+limit)
+      .skip((+page - 1) * +limit);
+    
+    const total = await FundRequest.countDocuments(filter);
+    
+    res.json({ 
+      success: true, 
+      data: requests, 
+      pagination: { total, page: +page, pages: Math.ceil(total / +limit) } 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/admin/fund-request/:id/approve
+router.put('/fund-request/:id/approve', async (req, res) => {
+  try {
+    const fundRequest = await FundRequest.findById(req.params.id);
+    
+    if (!fundRequest) {
+      return res.status(404).json({ success: false, message: 'Fund request not found' });
+    }
+    
+    if (fundRequest.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Request already processed' });
+    }
+    
+    // Update fund request
+    fundRequest.status = 'approved';
+    fundRequest.approvedBy = req.user._id;
+    fundRequest.approvedAt = Date.now();
+    fundRequest.adminNotes = req.body.adminNotes || '';
+    await fundRequest.save();
+    
+    // Credit wallet
+    await User.findByIdAndUpdate(fundRequest.user, {
+      $inc: { 
+        walletBalance: fundRequest.amount,
+        availableBalance: fundRequest.amount
+      }
+    });
+    
+    // Create transaction
+    await Transaction.create({
+      user: fundRequest.user,
+      type: 'DEPOSIT',
+      direction: 'CREDIT',
+      amount: fundRequest.amount,
+      description: `Fund request approved (${fundRequest.paymentMethod})`,
+      paymentMethod: fundRequest.paymentMethod,
+      status: 'COMPLETED'
+    });
+    
+    // Notify user
+    await Notification.create({
+      user: fundRequest.user,
+      type: 'FUND_APPROVED',
+      title: 'Fund Request Approved',
+      message: `₹${fundRequest.amount.toLocaleString('en-IN')} has been credited to your wallet.`,
+      data: { amount: fundRequest.amount, requestId: fundRequest._id }
+    });
+    
+    // Emit socket event
+    req.app.get('io')?.to(`user:${fundRequest.user}`).emit('wallet:updated', {
+      balance: (await User.findById(fundRequest.user)).walletBalance
+    });
+    
+    res.json({ success: true, message: 'Fund request approved successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/admin/fund-request/:id/reject
+router.put('/fund-request/:id/reject', async (req, res) => {
+  try {
+    const fundRequest = await FundRequest.findById(req.params.id);
+    
+    if (!fundRequest) {
+      return res.status(404).json({ success: false, message: 'Fund request not found' });
+    }
+    
+    if (fundRequest.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Request already processed' });
+    }
+    
+    // Update fund request
+    fundRequest.status = 'rejected';
+    fundRequest.approvedBy = req.user._id;
+    fundRequest.approvedAt = Date.now();
+    fundRequest.adminNotes = req.body.adminNotes || req.body.reason || '';
+    await fundRequest.save();
+    
+    // Notify user
+    await Notification.create({
+      user: fundRequest.user,
+      type: 'FUND_REJECTED',
+      title: 'Fund Request Rejected',
+      message: `Your fund request of ₹${fundRequest.amount.toLocaleString('en-IN')} has been rejected. Reason: ${fundRequest.adminNotes}`,
+      data: { amount: fundRequest.amount, requestId: fundRequest._id }
+    });
+    
+    res.json({ success: true, message: 'Fund request rejected' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ───────────────────────────────────────────────
+// ── WITHDRAW REQUEST MANAGEMENT ───────────────
+// ───────────────────────────────────────────────
+
+// GET /api/admin/withdraw-requests - All withdrawal requests
+router.get('/withdraw-requests', async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    
+    const requests = await WithdrawRequest.find(filter)
+      .populate('user', 'fullName email mobile clientId')
+      .sort({ createdAt: -1 })
+      .limit(+limit)
+      .skip((+page - 1) * +limit);
+    
+    const total = await WithdrawRequest.countDocuments(filter);
+    
+    res.json({ 
+      success: true, 
+      data: requests, 
+      pagination: { total, page: +page, pages: Math.ceil(total / +limit) } 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/admin/withdraw-request/:id/approve
+router.put('/withdraw-request/:id/approve', async (req, res) => {
+  try {
+    const withdrawRequest = await WithdrawRequest.findById(req.params.id);
+    
+    if (!withdrawRequest) {
+      return res.status(404).json({ success: false, message: 'Withdraw request not found' });
+    }
+    
+    if (withdrawRequest.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Request already processed' });
+    }
+    
+    // Update withdraw request
+    withdrawRequest.status = 'approved';
+    withdrawRequest.approvedBy = req.user._id;
+    withdrawRequest.approvedAt = Date.now();
+    withdrawRequest.adminNotes = req.body.adminNotes || '';
+    await withdrawRequest.save();
+    
+    // Deduct blocked amount permanently
+    await User.findByIdAndUpdate(withdrawRequest.user, {
+      $inc: { blockedAmount: -withdrawRequest.amount }
+    });
+    
+    // Create transaction
+    await Transaction.create({
+      user: withdrawRequest.user,
+      type: 'WITHDRAWAL',
+      direction: 'DEBIT',
+      amount: withdrawRequest.amount,
+      description: `Withdrawal approved (${withdrawRequest.paymentMethod})`,
+      paymentMethod: withdrawRequest.paymentMethod,
+      status: 'COMPLETED'
+    });
+    
+    // Notify user
+    await Notification.create({
+      user: withdrawRequest.user,
+      type: 'WITHDRAW_APPROVED',
+      title: 'Withdrawal Request Approved',
+      message: `₹${withdrawRequest.amount.toLocaleString('en-IN')} withdrawal has been approved. Amount will be transferred soon.`,
+      data: { amount: withdrawRequest.amount, requestId: withdrawRequest._id }
+    });
+    
+    res.json({ success: true, message: 'Withdrawal request approved successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/admin/withdraw-request/:id/reject
+router.put('/withdraw-request/:id/reject', async (req, res) => {
+  try {
+    const withdrawRequest = await WithdrawRequest.findById(req.params.id);
+    
+    if (!withdrawRequest) {
+      return res.status(404).json({ success: false, message: 'Withdraw request not found' });
+    }
+    
+    if (withdrawRequest.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Request already processed' });
+    }
+    
+    // Unblock the amount
+    await User.findByIdAndUpdate(withdrawRequest.user, {
+      $inc: { 
+        blockedAmount: -withdrawRequest.amount,
+        walletBalance: withdrawRequest.amount,
+        availableBalance: withdrawRequest.amount
+      }
+    });
+    
+    // Update withdraw request
+    withdrawRequest.status = 'rejected';
+    withdrawRequest.approvedBy = req.user._id;
+    withdrawRequest.approvedAt = Date.now();
+    withdrawRequest.adminNotes = req.body.adminNotes || req.body.reason || '';
+    await withdrawRequest.save();
+    
+    // Notify user
+    await Notification.create({
+      user: withdrawRequest.user,
+      type: 'WITHDRAW_REJECTED',
+      title: 'Withdrawal Request Rejected',
+      message: `Your withdrawal request of ₹${withdrawRequest.amount.toLocaleString('en-IN')} has been rejected. Reason: ${withdrawRequest.adminNotes}. Amount has been credited back to your wallet.`,
+      data: { amount: withdrawRequest.amount, requestId: withdrawRequest._id }
+    });
+    
+    res.json({ success: true, message: 'Withdrawal request rejected. Amount credited back.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ───────────────────────────────────────────────
+// ── TRADE MONITORING ──────────────────────────
+// ───────────────────────────────────────────────
+
+// GET /api/admin/trades - Monitor all user trades
+router.get('/trades', async (req, res) => {
+  try {
+    const { page = 1, limit = 50, symbol, status } = req.query;
+    const filter = {};
+    if (symbol) filter.symbol = symbol;
+    if (status) filter.status = status;
+    
+    const orders = await Order.find(filter)
+      .populate('user', 'fullName email clientId')
+      .sort({ createdAt: -1 })
+      .limit(+limit)
+      .skip((+page - 1) * +limit);
+    
+    const total = await Order.countDocuments(filter);
+    
+    res.json({ 
+      success: true, 
+      data: orders, 
+      pagination: { total, page: +page, pages: Math.ceil(total / +limit) } 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ───────────────────────────────────────────────
+// ── POSITIONS MONITORING ──────────────────────
+// ───────────────────────────────────────────────
+
+// GET /api/admin/positions - All user positions
+router.get('/positions', async (req, res) => {
+  try {
+    const { isClosed, page = 1, limit = 50 } = req.query;
+    const filter = {};
+    if (isClosed !== undefined) filter.isClosed = isClosed === 'true';
+    
+    const positions = await Position.find(filter)
+      .populate('user', 'fullName email clientId')
+      .sort({ createdAt: -1 })
+      .limit(+limit)
+      .skip((+page - 1) * +limit);
+    
+    const total = await Position.countDocuments(filter);
+    
+    res.json({ 
+      success: true, 
+      data: positions, 
+      pagination: { total, page: +page, pages: Math.ceil(total / +limit) } 
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
