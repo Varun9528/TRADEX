@@ -6,7 +6,7 @@ const Stock = require('../models/Stock');
 const { Order, Holding } = require('../models/Order');
 const Position = require('../models/Position');
 const { Transaction, Withdrawal } = require('../models/Transaction');
-const { Notification } = require('../models/Watchlist');
+const Notification = require('../models/Notification');
 const { protect, adminOnly } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
