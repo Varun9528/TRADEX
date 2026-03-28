@@ -129,6 +129,21 @@ export default function AppLayout() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3">
+        {/* Admin Dashboard Button - Only for Admins */}
+        {isAdmin && (
+          <div className="px-4 mb-3">
+            <a
+              href="/admin"
+              className="flex items-center gap-2 bg-gradient-to-r from-brand-blue to-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold text-xs shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <Settings size={16} />
+              <span>Admin Dashboard</span>
+            </a>
+          </div>
+        )}
+
+        {/* Main Navigation */}
         <div className="px-4 py-1.5 text-[10px] text-text-secondary uppercase tracking-widest">Main</div>
         {NAV_ITEMS.map(item => (
           <NavLink
@@ -148,9 +163,10 @@ export default function AppLayout() {
           </NavLink>
         ))}
 
+        {/* Admin Section - Only for Admins */}
         {isAdmin && (
           <>
-            <div className="px-4 py-1.5 mt-2 text-[10px] text-text-secondary uppercase tracking-widest">Admin</div>
+            <div className="px-4 py-1.5 mt-4 text-[10px] text-text-secondary uppercase tracking-widest border-t border-border pt-3">Admin Panel</div>
             {ADMIN_NAV.map(item => (
               <NavLink key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
