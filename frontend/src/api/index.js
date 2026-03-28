@@ -179,14 +179,14 @@ export const adminAPI = {
   setStockPrice: (symbol, price) => api.patch(`/admin/stocks/${symbol}/price`, { price }),
   getTransactions: (params) => api.get('/admin/transactions', { params }),
   broadcast: (data) => api.post('/admin/notifications/broadcast', data),
-  // Fund request management
+  // Fund request management - Updated to match backend
   getFundRequests: (params) => api.get('/admin/fund-requests', { params }),
-  approveFundRequest: (id) => api.put(`/admin/fund-request/${id}/approve`),
-  rejectFundRequest: (id) => api.put(`/admin/fund-request/${id}/reject`),
-  // Withdraw request management
+  approveFundRequest: (id) => api.post(`/admin/approve-fund/${id}`),
+  rejectFundRequest: (id, reason) => api.post(`/admin/reject-fund/${id}`, { reason }),
+  // Withdraw request management - Updated to match backend
   getWithdrawRequests: (params) => api.get('/admin/withdraw-requests', { params }),
-  approveWithdrawRequest: (id) => api.put(`/admin/withdraw-request/${id}/approve`),
-  rejectWithdrawRequest: (id) => api.put(`/admin/withdraw-request/${id}/reject`),
+  approveWithdrawRequest: (id) => api.post(`/admin/approve-withdraw/${id}`),
+  rejectWithdrawRequest: (id, reason) => api.post(`/admin/reject-withdraw/${id}`, { reason }),
   // Trade monitoring
   getTrades: (params) => api.get('/admin/trades', { params }),
   getPositions: (params) => api.get('/admin/positions', { params }),

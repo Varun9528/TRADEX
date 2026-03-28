@@ -11,6 +11,7 @@ import { useSocket } from '../context/SocketContext';
 import { stockAPI, notificationAPI } from '../api';
 import toast from 'react-hot-toast';
 import NotificationBell from '../components/NotificationBell';
+import MobileBottomNav from '../components/MobileBottomNav';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -254,7 +255,7 @@ export default function AppLayout() {
 
         {/* Page content - Scrollable area */}
         <main 
-          className="flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto min-h-0" 
+          className="flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto min-h-0 pb-14 lg:pb-4" 
           style={{ 
             pointerEvents: 'auto',
             minHeight: 'calc(100vh - 60px)',
@@ -262,6 +263,9 @@ export default function AppLayout() {
         >
           <Outlet />
         </main>
+
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav />
       </div>
     </div>
   );
