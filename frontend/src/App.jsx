@@ -37,6 +37,7 @@ import AdminStocks from './pages/admin/AdminStocks';
 import AdminFundRequests from './pages/admin/AdminFundRequests';
 import AdminWithdrawRequests from './pages/admin/AdminWithdrawRequests';
 import AdminTrades from './pages/admin/AdminTrades';
+import AdminMarketManagement from './pages/admin/AdminMarketManagement';
 
 // ─── AUTH PROTECTED ROUTES ─────────────────────────────────
 
@@ -115,6 +116,7 @@ export default function App() {
 
               {/* Admin */}
               <Route path="admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+              <Route path="admin/market" element={<ProtectedRoute adminOnly><AdminMarketManagement /></ProtectedRoute>} />
               <Route path="admin/fund-requests" element={<ProtectedRoute adminOnly><AdminFundRequests /></ProtectedRoute>} />
               <Route path="admin/withdraw-requests" element={<ProtectedRoute adminOnly><AdminWithdrawRequests /></ProtectedRoute>} />
               <Route path="admin/trades" element={<ProtectedRoute adminOnly><AdminTrades /></ProtectedRoute>} />
