@@ -28,6 +28,7 @@ const adminRoutes = require('./routes/admin');
 const adminWalletRoutes = require('./routes/adminWallet');
 const adminUsersRoutes = require('./routes/adminUsers');
 const notificationRoutes = require('./routes/notifications');
+const marketRoutes = require('./routes/market');
 
 const app = express();
 const server = http.createServer(app);
@@ -135,6 +136,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminWalletRoutes);
 app.use('/api/admin', adminUsersRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/market', marketRoutes);
 
 // ── HEALTH CHECK ──
 app.get('/api/health', (req, res) => {
@@ -202,12 +204,10 @@ async function start() {
     logger.info('[Server] Price engine initialized');
   }
   
-  // Initialize TwelveData price update job only once
-  if (!global.priceJobStarted) {
-    initializePriceUpdateJob(io);
-    global.priceJobStarted = true;
-    logger.info('[Server] Price update job scheduled');
-  }
+  // Start chart simulation for realistic market movement
+  const chartSimulation = require('./utils/chartSimulation');
+  chartSimulation.startSimulation();
+  logger.info('[Server] Chart simulation started - Market will move automatically');
   
   // Try to start server, if port in use try next one
   const startServer = (portToTry) => {

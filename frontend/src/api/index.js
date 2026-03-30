@@ -152,6 +152,13 @@ export const watchlistAPI = {
   setAlert: (symbol, alertPrice) => api.patch(`/watchlist/${symbol}/alert`, { alertPrice }),
 };
 
+export const marketAPI = {
+  getAll: (params) => api.get('/market', { params }),
+  getByType: (type) => api.get('/market', { params: { type } }),
+  getOne: (symbol) => api.get(`/market/${symbol}`),
+  search: (query) => api.get('/market', { params: { search: query } }),
+};
+
 export const orderAPI = {
   getAll: (params) => api.get('/orders', { params }),
   getOne: (orderId) => api.get(`/orders/${orderId}`),
@@ -190,6 +197,14 @@ export const adminAPI = {
   // Trade monitoring
   getTrades: (params) => api.get('/admin/trades', { params }),
   getPositions: (params) => api.get('/admin/positions', { params }),
+  
+  // Market management (NEW)
+  getMarketInstruments: (params) => api.get('/market', { params }),
+  createInstrument: (data) => api.post('/admin/market', data),
+  updateInstrument: (id, data) => api.put(`/admin/market/${id}`, data),
+  deleteInstrument: (id) => api.delete(`/admin/market/${id}`),
+  updatePrice: (id, price) => api.patch(`/admin/market/price/${id}`, { price }),
+  getMarketStats: () => api.get('/admin/market/stats/dashboard'),
 };
 
 export default api;
