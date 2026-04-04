@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { positionAPI, stockAPI } from '../api';
+import { positionAPI } from '../api';
 import toast from 'react-hot-toast';
 import BottomNav from '../components/BottomNav';
 import { TrendingUp, TrendingDown, X, Clock, IndianRupee } from 'lucide-react';

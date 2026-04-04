@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { marketAPI } from '../api';
-import { useSocket } from '../context/SocketContext';
 import useAuthStore from '../context/authStore';
 import ChartPanel from '../components/ChartPanel';
 import OrderPanel from '../components/OrderPanel';
@@ -10,104 +9,76 @@ import { useSearchParams } from 'react-router-dom';
 import { TrendingUp, Activity, DollarSign } from 'lucide-react';
 
 export default function TradingPage() {
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const socket = useSocket();
   const [searchParams] = useSearchParams();
   
-  // Market type tab: 'STOCK' or 'FOREX'
+  // Check if trading is enabled for user
+  const isTradingEnabled = user?.tradingEnabled !== false;
+  
+  // Market type tab: 'STOCK', 'FOREX', or 'OPTION'
   const [marketType, setMarketType] = useState('STOCK');
   const [instruments, setInstruments] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch market instruments based on type
+  // SIMPLE: Clear instruments AND selected when tab changes
+  useEffect(() => {
+    console.log('[TradingPage] 🔄 Tab changed to:', marketType);
+    setInstruments([]); // Clear old instruments
+    setSelected(null); // Clear selected instrument
+    setLoading(true);
+    // Invalidate and remove ALL cached queries for market-instruments
+    queryClient.invalidateQueries(['market-instruments']);
+    queryClient.removeQueries(['market-instruments']);
+    console.log('[TradingPage] 🗑️  Cleared cache for market-instruments');
+  }, [marketType]);
+
+  // Fetch market instruments based on type - REFETCHES ON marketType CHANGE
   const { data: marketData, isLoading, error, refetch } = useQuery({
     queryKey: ['market-instruments', marketType],
-    queryFn: async () => {
+    queryFn: async ({ queryKey }) => {
+      const [, type] = queryKey;
       try {
-        const response = await marketAPI.getByType(marketType);
-        return response.data || [];
+        console.log('[TradingPage] 📡 Fetching instruments for type:', type);
+        console.log('[TradingPage] 🔑 Query key:', queryKey);
+        const response = await marketAPI.getByType(type);
+        console.log('[TradingPage] 📦 API Response:', response);
+        const list = Array.isArray(response?.data) ? response.data : [];
+        console.log('[TradingPage] ✅ Loaded', list.length, type, 'instruments');
+        if (list.length > 0) {
+          console.log('[TradingPage] 📋 First instrument:', list[0]);
+        }
+        return list;
       } catch (err) {
-        console.error('[TradingPage] Market API failed:', err);
+        console.error('[TradingPage] ❌ Market API failed:', err.message);
         return [];
       }
     },
-    refetchInterval: 5000, // Refresh every 5 seconds for live updates
-    retry: 2,
+    keepPreviousData: false,
+    staleTime: 30000, // Cache for 30 seconds
+    cacheTime: 60000, // Keep in cache for 1 minute
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchInterval: false, // Disable auto-refetch
+    retry: 1,
   });
 
-  // Initialize instruments from market data
+  // Update instruments when data arrives
   useEffect(() => {
-    const fetchedInstruments = marketData || [];
-    if (fetchedInstruments.length > 0) {
-      setInstruments(fetchedInstruments);
-      console.log(`[TradingPage] Loaded ${fetchedInstruments.length} ${marketType} instruments`);
-    } else {
-      setInstruments([]);
-      console.log('[TradingPage] No instruments available');
+    if (marketData && Array.isArray(marketData)) {
+      setInstruments(marketData);
+      setLoading(false);
     }
-    setLoading(false);
-  }, [marketData, marketType]);
+  }, [marketData]);
 
-  // Auto-select first instrument
+  // SIMPLE: Auto-select first instrument when instruments load
   useEffect(() => {
-    if (instruments.length > 0 && !selected) {
-      const urlSymbol = searchParams.get('symbol');
-      let instrumentToSelect = null;
-      
-      if (urlSymbol) {
-        instrumentToSelect = instruments.find(inst => inst.symbol === urlSymbol);
-      }
-      
-      if (!instrumentToSelect) {
-        instrumentToSelect = instruments[0]; // Always select first instrument
-      }
-      
-      if (instrumentToSelect) {
-        setSelected(instrumentToSelect);
-        console.log('[TradingPage] Auto-selected:', instrumentToSelect.symbol);
-      }
+    if (instruments.length > 0) {
+      console.log('[TradingPage] Auto-selecting:', instruments[0].symbol);
+      setSelected(instruments[0]);
     }
-  }, [instruments, selected, searchParams]);
-
-  // Socket.IO price updates
-  useEffect(() => {
-    if (!socket) return;
-
-    const handlePriceUpdate = (updates) => {
-      setInstruments(prevInstruments => {
-        const updatedInstruments = prevInstruments.map(inst => {
-          const update = updates.find(u => u.symbol === inst.symbol);
-          if (update) {
-            return {
-              ...inst,
-              price: update.currentPrice || update.price,
-              change: update.change,
-              changePercent: update.changePercent,
-              trend: update.change >= 0 ? 'UP' : 'DOWN'
-            };
-          }
-          return inst;
-        });
-        
-        // Update selected instrument if it changed
-        const selectedUpdate = updates.find(u => u.symbol === selected?.symbol);
-        if (selectedUpdate && selected) {
-          setSelected(prev => ({
-            ...prev,
-            price: selectedUpdate.currentPrice || selectedUpdate.price,
-            change: selectedUpdate.change,
-            changePercent: selectedUpdate.changePercent,
-          }));
-        }
-        
-        return updatedInstruments;
-      });
-    };
-
-    socket.on('price:update', handlePriceUpdate);
-    return () => socket.off('price:update', handlePriceUpdate);
-  }, [socket, selected]);
+  }, [instruments]);
 
   // Show minimal loading only on very first load
   if (loading) {
@@ -121,16 +92,22 @@ export default function TradingPage() {
     );
   }
 
-  // Use instruments directly (no fallback needed - database always has data)
+  // Show loading only during initial fetch
+  // Empty array is OK - will show empty watchlist
+
+  // Simple displaySelected - uses selected or falls back to first instrument
   const displayInstruments = instruments;
-  const displaySelected = selected || (instruments.length > 0 ? instruments[0] : null);
+  const displaySelected = selected || instruments[0] || null;
 
   return (
-    <div className="w-full h-screen bg-bg-primary" style={{ minWidth: 0, minHeight: 0 }}>
+    <div className="w-full h-screen bg-bg-primary flex flex-col" style={{ minWidth: 0, minHeight: 0 }}>
       {/* Market Type Tabs - Top Bar */}
-      <div className="bg-bg-secondary border-b border-border px-4 py-2 flex items-center gap-2">
+      <div className={`bg-bg-secondary border-b border-border px-4 py-2 flex items-center gap-2 flex-shrink-0`}>
         <button
-          onClick={() => setMarketType('STOCK')}
+          onClick={() => {
+            console.log('[TradingPage] 🔄 Tab clicked: Indian Market (STOCK)');
+            setMarketType('STOCK');
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all ${
             marketType === 'STOCK'
               ? 'bg-brand-blue text-white shadow-lg'
@@ -141,7 +118,10 @@ export default function TradingPage() {
           Indian Market
         </button>
         <button
-          onClick={() => setMarketType('FOREX')}
+          onClick={() => {
+            console.log('[TradingPage] 🔄 Tab clicked: Forex Market (FOREX)');
+            setMarketType('FOREX');
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all ${
             marketType === 'FOREX'
               ? 'bg-brand-blue text-white shadow-lg'
@@ -151,9 +131,23 @@ export default function TradingPage() {
           <DollarSign size={16} />
           Forex Market
         </button>
+        <button
+          onClick={() => {
+            console.log('[TradingPage] 🔄 Tab clicked: Options (OPTION)');
+            setMarketType('OPTION');
+          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all ${
+            marketType === 'OPTION'
+              ? 'bg-brand-blue text-white shadow-lg'
+              : 'bg-bg-card text-text-secondary hover:bg-bg-tertiary border border-border'
+          }`}
+        >
+          <Activity size={16} />
+          Options
+        </button>
         <div className="ml-auto flex items-center gap-2 text-xs text-text-secondary">
           <Activity size={14} />
-          <span>{instruments.length} {marketType === 'STOCK' ? 'Stocks' : 'Forex Pairs'}</span>
+          <span>{instruments.length} {marketType === 'STOCK' ? 'Stocks' : marketType === 'FOREX' ? 'Forex Pairs' : 'Options'}</span>
         </div>
       </div>
 
@@ -179,6 +173,7 @@ export default function TradingPage() {
                 onStockSelect={setSelected} 
                 selectedSymbol={displaySelected?.symbol}
                 stocks={displayInstruments}
+                marketType={marketType}
               />
             </div>
           </div>
@@ -197,13 +192,28 @@ export default function TradingPage() {
                 )}
               </div>
               
-              {/* Chart Container - Auto Expand */}
-              <div className="flex-1 w-full" style={{ flex: 1, minWidth: 0, minHeight: 0, backgroundColor: '#0f172a' }}>
-                <ChartPanel 
-                  symbol={displaySelected?.symbol || 'RELIANCE'} 
-                  currentPrice={displaySelected?.price || 0}
-                  chartData={displaySelected?.chartData || []}
-                />
+              {/* Chart Container - Fixed Height, No Overflow */}
+              <div 
+                className="w-full" 
+                style={{ 
+                  height: '500px', 
+                  minHeight: '500px',
+                  maxHeight: '500px',
+                  overflow: 'hidden',
+                  backgroundColor: '#0f172a' 
+                }}
+              >
+                {displaySelected ? (
+                  <ChartPanel 
+                    symbol={displaySelected.symbol} 
+                    currentPrice={displaySelected.price || 0}
+                    chartData={displaySelected.chartData || []}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-text-muted">
+                    <p>Select an instrument to view chart</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -211,7 +221,7 @@ export default function TradingPage() {
           {/* Right: Order Panel - Fixed Width */}
           <div className="min-w-0" style={{ minWidth: 0 }}>
             <div className="bg-bg-card border border-border rounded-lg p-3 h-full overflow-y-auto" style={{ height: '100%' }}>
-              <OrderPanel stock={displaySelected} />
+              <OrderPanel stock={displaySelected} tradingEnabled={isTradingEnabled} />
             </div>
           </div>
         </div>
@@ -225,22 +235,37 @@ export default function TradingPage() {
         <div className="grid h-full" style={{ gridTemplateColumns: '220px minmax(0,1fr) 280px', gap: '6px', padding: '6px' }}>
           <div className="min-w-0">
             <div className="h-full overflow-y-auto">
-              <Watchlist onStockSelect={setSelected} selectedSymbol={displaySelected?.symbol} stocks={displayInstruments} />
+              <Watchlist onStockSelect={setSelected} selectedSymbol={displaySelected?.symbol} stocks={displayInstruments} marketType={marketType} />
             </div>
           </div>
           <div className="min-w-0 flex flex-col h-full">
             <div className="bg-bg-card border border-border rounded-lg overflow-hidden flex flex-col h-full">
               <div className="px-2 py-1.5 border-b border-border text-[11px] font-semibold text-text-primary">
-                {displaySelected?.symbol || "Select"}
+                {displaySelected?.symbol || "Select Instrument"}
               </div>
-              <div className="flex-1 w-full" style={{ flex: 1, minWidth: 0, minHeight: 0, backgroundColor: '#0f172a' }}>
-                <ChartPanel symbol={displaySelected?.symbol || 'RELIANCE'} currentPrice={displaySelected?.price || 0} chartData={displaySelected?.chartData || []} />
+              <div 
+                className="w-full" 
+                style={{ 
+                  height: '400px', 
+                  minHeight: '400px',
+                  maxHeight: '400px',
+                  overflow: 'hidden',
+                  backgroundColor: '#0f172a' 
+                }}
+              >
+                {displaySelected ? (
+                  <ChartPanel symbol={displaySelected.symbol} currentPrice={displaySelected.price || 0} chartData={displaySelected.chartData || []} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
+                    <p>Select an instrument</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
           <div className="min-w-0">
             <div className="bg-bg-card border border-border rounded-lg p-2 h-full overflow-y-auto">
-              <OrderPanel stock={displaySelected} />
+              <OrderPanel stock={displaySelected} tradingEnabled={isTradingEnabled} />
             </div>
           </div>
         </div>
@@ -248,11 +273,20 @@ export default function TradingPage() {
 
       {/* TABLET & MOBILE - Simplified layouts */}
       <div className="lg:hidden flex flex-col gap-2 p-2 h-full overflow-y-auto pb-20">
-        <div className="bg-bg-card border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: '45vh' }}>
-          <ChartPanel symbol={displaySelected?.symbol || 'RELIANCE'} currentPrice={displaySelected?.price || 0} chartData={displaySelected?.chartData || []} />
+        <div 
+          className="bg-bg-card border border-border rounded-lg overflow-hidden" 
+          style={{ height: '45vh', minHeight: '350px', maxHeight: '45vh', overflow: 'hidden' }}
+        >
+          {displaySelected ? (
+            <ChartPanel symbol={displaySelected.symbol} currentPrice={displaySelected.price || 0} chartData={displaySelected.chartData || []} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
+              <p>Select an instrument</p>
+            </div>
+          )}
         </div>
         <div className="bg-bg-card border border-border rounded-lg overflow-hidden">
-          <OrderPanel stock={displaySelected} />
+          <OrderPanel stock={displaySelected} tradingEnabled={isTradingEnabled} />
         </div>
         <div className="bg-bg-card border border-border rounded-lg p-2">
           <label className="block text-xs text-text-secondary mb-2 font-semibold">Select {marketType === 'STOCK' ? 'Stock' : 'Pair'}</label>

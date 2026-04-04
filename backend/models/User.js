@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
   // ── TRADING ACCOUNT ──
   clientId: { type: String, unique: true, sparse: true },
   dematAccountNumber: { type: String, unique: true, sparse: true },
-  tradingEnabled: { type: Boolean, default: false },
+  tradingEnabled: { type: Boolean, default: true }, // Default enabled for new users
   segment: [{ type: String, enum: ['EQ', 'FO', 'MF'] }],
 
   // ── WALLET & MARGIN ──

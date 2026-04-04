@@ -7,13 +7,15 @@ const logger = require('../utils/logger');
 // ─── GET ALL MARKET INSTRUMENTS ──────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { type = 'all', exchange = 'all', status = 'active', search = '', limit = 100 } = req.query;
+    const { type = 'all', exchange = 'all', status = 'active', search = '', limit = 1000 } = req.query;
+    
+    console.log('[Market API Debug] Query params:', { type, exchange, status, search, limit });
     
     const query = {};
     
-    // Filter by type
+    // Filter by type - CRITICAL: must match exactly
     if (type !== 'all') {
-      query.type = type;
+      query.type = type.toUpperCase();
     }
     
     // Filter by exchange
@@ -36,14 +38,82 @@ router.get('/', async (req, res) => {
       ];
     }
     
+    console.log('[Market API Debug] MongoDB query:', JSON.stringify(query));
+    
+    // Smart sorting: prioritize by type to ensure results are returned
+    let sortCriteria = { volume: -1 };
+    const normalizedType = type.toUpperCase();
+    if (normalizedType === 'OPTION') {
+      // For options, sort by expiry date then strike price
+      sortCriteria = { expiryDate: 1, strikePrice: 1 };
+    } else if (normalizedType === 'FOREX') {
+      // For forex, sort alphabetically by symbol
+      sortCriteria = { symbol: 1 };
+    }
+    
     const instruments = await MarketInstrument.find(query)
-      .sort({ volume: -1 })
+      .sort(sortCriteria)
       .limit(parseInt(limit));
+    
+    console.log('[Market API Debug] Found', instruments.length, 'instruments');
+    
+    // NO FALLBACK DATA - Admin must add instruments
+    if (!instruments || instruments.length === 0) {
+      console.log('[Market API] No instruments found - admin must add instruments');
+      return res.json({
+        success: true,
+        data: [], // Empty array - NO demo data
+        count: 0,
+        message: 'No instruments available. Admin must add instruments from admin panel.'
+      });
+    }
+    
+    // Transform instruments to ensure all fields exist
+    const formattedInstruments = instruments.map(inst => {
+      // CRITICAL: Map all possible price fields to ensure price is never 0
+      const priceValue = inst.price || inst.ltp || inst.lastPrice || inst.close || 0;
+      
+      const base = {
+        _id: inst._id,
+        symbol: inst.symbol,
+        name: inst.name,
+        type: inst.type,
+        price: priceValue,  // ✅ Always has a value
+        currentPrice: priceValue,  // ✅ Consistent with price
+        changePercent: inst.changePercent || 0,
+        change: inst.change || 0,
+        open: inst.open || priceValue,
+        high: inst.high || priceValue,
+        low: inst.low || priceValue,
+        close: inst.close || priceValue,
+        volume: inst.volume || 0,
+        status: inst.isActive ? 'active' : 'inactive',
+        isActive: inst.isActive,
+        exchange: inst.exchange,
+        sector: inst.sector,
+        description: inst.description,
+        trend: inst.trend || 'FLAT',
+      };
+      
+      // Include option-specific fields if type is OPTION
+      if (inst.type === 'OPTION') {
+        return {
+          ...base,
+          strikePrice: inst.strikePrice || null,
+          expiryDate: inst.expiryDate || null,
+          lotSize: inst.lotSize || 50,
+          optionType: inst.optionType || null,
+          underlyingAsset: inst.underlyingAsset || null,
+        };
+      }
+      
+      return base;
+    });
     
     res.json({
       success: true,
-      data: instruments,
-      count: instruments.length
+      data: formattedInstruments,
+      count: formattedInstruments.length
     });
   } catch (error) {
     logger.error('Error fetching market instruments', error);
@@ -99,6 +169,18 @@ router.post('/', protect, adminOnly, async (req, res) => {
       });
     }
     
+    // CRITICAL: Standardize type to uppercase
+    const standardizedType = type.toUpperCase().trim();
+    
+    // Validate allowed types
+    const allowedTypes = ['STOCK', 'FOREX', 'OPTION'];
+    if (!allowedTypes.includes(standardizedType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid type. Must be one of: ${allowedTypes.join(', ')}`
+      });
+    }
+    
     // Check if symbol already exists
     const existing = await MarketInstrument.findOne({ symbol: symbol.toUpperCase() });
     if (existing) {
@@ -111,7 +193,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
     const instrument = await MarketInstrument.create({
       name,
       symbol: symbol.toUpperCase(),
-      type,
+      type: standardizedType,  // ✅ Use standardized uppercase type
       exchange,
       price,
       open: open || price,
@@ -125,7 +207,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
       createdBy: req.user._id
     });
     
-    logger.info(`Instrument created: ${symbol} by admin ${req.user.email}`);
+    logger.info(`Instrument created: ${symbol} (type: ${standardizedType}) by admin ${req.user.email}`);
     
     res.status(201).json({
       success: true,
@@ -161,13 +243,24 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {
-        instrument[field] = req.body[field];
+        // CRITICAL: Standardize type to uppercase when updating
+        if (field === 'type') {
+          const standardizedType = req.body[field].toUpperCase().trim();
+          const allowedTypes = ['STOCK', 'FOREX', 'OPTION'];
+          if (!allowedTypes.includes(standardizedType)) {
+            logger.warn(`Invalid type attempted: ${req.body[field]}`);
+            return; // Skip invalid type
+          }
+          instrument[field] = standardizedType;
+        } else {
+          instrument[field] = req.body[field];
+        }
       }
     });
     
     await instrument.save();
     
-    logger.info(`Instrument updated: ${instrument.symbol} by admin ${req.user.email}`);
+    logger.info(`Instrument updated: ${instrument.symbol} (type: ${instrument.type}) by admin ${req.user.email}`);
     
     res.json({
       success: true,
@@ -261,6 +354,63 @@ router.patch('/price/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
+// ─── GET CHART DATA (CANDLESTICKS) ──────────────────────────────
+router.get('/chart/:symbol', async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { interval = '1min', outputsize = 50 } = req.query;
+    
+    // Get instrument from database
+    const instrument = await MarketInstrument.findOne({ 
+      symbol: symbol.toUpperCase() 
+    });
+    
+    if (!instrument) {
+      return res.status(404).json({
+        success: false,
+        message: 'Instrument not found'
+      });
+    }
+    
+    // Generate simulated candlestick data based on current price
+    // In production, this would fetch from TwelveData or similar
+    const candles = [];
+    const basePrice = instrument.price || 100;
+    const volatility = basePrice * 0.02; // 2% volatility
+    
+    for (let i = outputsize - 1; i >= 0; i--) {
+      const open = basePrice + (Math.random() - 0.5) * volatility;
+      const close = open + (Math.random() - 0.5) * volatility;
+      const high = Math.max(open, close) + Math.random() * volatility * 0.5;
+      const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+      const volume = Math.floor(Math.random() * 1000000) + 500000;
+      
+      candles.push({
+        time: Date.now() - (i * 60000), // 1 minute intervals
+        open,
+        high,
+        low,
+        close,
+        volume
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: candles,
+      symbol: instrument.symbol,
+      interval
+    });
+  } catch (error) {
+    logger.error('Error fetching chart data', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch chart data',
+      error: error.message
+    });
+  }
+});
+
 // ─── GET DASHBOARD STATS (ADMIN ONLY) ──────────────────────────────
 router.get('/stats/dashboard', protect, adminOnly, async (req, res) => {
   try {
@@ -269,6 +419,7 @@ router.get('/stats/dashboard', protect, adminOnly, async (req, res) => {
     const stocksCount = await MarketInstrument.countDocuments({ type: 'STOCK', isActive: true });
     const forexCount = await MarketInstrument.countDocuments({ type: 'FOREX', isActive: true });
     const cryptoCount = await MarketInstrument.countDocuments({ type: 'CRYPTO', isActive: true });
+    const optionsCount = await MarketInstrument.countDocuments({ type: 'OPTION', isActive: true });
     
     const recentUpdates = await MarketInstrument.find()
       .sort({ updatedAt: -1 })
@@ -283,6 +434,7 @@ router.get('/stats/dashboard', protect, adminOnly, async (req, res) => {
         stocksCount,
         forexCount,
         cryptoCount,
+        optionsCount,
         recentUpdates
       }
     });

@@ -7,6 +7,7 @@ const { Order, Holding } = require('../models/Order');
 const Position = require('../models/Position');
 const { Transaction, Withdrawal } = require('../models/Transaction');
 const Notification = require('../models/Notification');
+const FundRequest = require('../models/FundRequest');  // ✅ Added for fund/withdraw requests
 const { protect, adminOnly } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
@@ -361,21 +362,40 @@ router.patch('/wallet/adjust', async (req, res) => {
     const balanceBefore = user.walletBalance;
     const balanceAfter = type === 'add' ? balanceBefore + amount : balanceBefore - amount;
 
-    await User.findByIdAndUpdate(userId, { walletBalance: balanceAfter });
+    // Update BOTH walletBalance AND availableBalance
+    await User.findByIdAndUpdate(userId, { 
+      walletBalance: balanceAfter,
+      availableBalance: balanceAfter  // ✅ Ensure availableBalance matches
+    });
+
+    console.log('[Admin Wallet] Updated user balance:', {
+      userId,
+      balanceBefore,
+      balanceAfter,
+      type
+    });
 
     const { Transaction } = require('../models/Transaction');
     await Transaction.create({
-      user: userId, type: 'ADJUSTMENT',
+      user: userId, 
+      type: 'ADJUSTMENT',
       direction: type === 'add' ? 'CREDIT' : 'DEBIT',
-      amount, balanceBefore, balanceAfter,
+      amount, 
+      balanceBefore, 
+      balanceAfter,
       description: `Admin wallet adjustment: ${reason || 'No reason provided'}`,
       paymentMethod: 'INTERNAL',
       processedBy: req.user._id,
       status: 'COMPLETED',
     });
 
-    res.json({ success: true, message: `₹${amount} ${type === 'add' ? 'added to' : 'deducted from'} wallet.`, newBalance: balanceAfter });
+    res.json({ 
+      success: true, 
+      message: `₹${amount} ${type === 'add' ? 'added to' : 'deducted from'} wallet.`, 
+      newBalance: balanceAfter 
+    });
   } catch (err) {
+    console.error('[Admin Wallet Error]:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -496,14 +516,20 @@ router.post('/notifications/broadcast', async (req, res) => {
 // ── FUND REQUEST MANAGEMENT ───────────────────
 // ───────────────────────────────────────────────
 
-// GET /api/admin/fund-requests - All fund requests
-router.get('/fund-requests', async (req, res) => {
+// GET /api/admin/fund-requests - All DEPOSIT requests
+router.get('/fund-requests', protect, adminOnly, async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
-    const filter = {};
-    if (status) filter.status = status;
     
-    const requests = await FundRequest.find(filter)
+    // Build filter - only DEPOSIT type
+    let filter = { type: 'DEPOSIT' };
+    if (status && status !== 'all') {
+      filter.status = status.toUpperCase();
+    }
+    
+    console.log('[Admin Fund Requests] Query:', { filter });
+    
+    const data = await FundRequest.find(filter)
       .populate('user', 'fullName email mobile clientId')
       .sort({ createdAt: -1 })
       .limit(+limit)
@@ -511,106 +537,136 @@ router.get('/fund-requests', async (req, res) => {
     
     const total = await FundRequest.countDocuments(filter);
     
+    console.log('[Admin Fund Requests] Found:', data.length, 'deposit requests');
+    
     res.json({ 
       success: true, 
-      data: requests, 
+      data,
       pagination: { total, page: +page, pages: Math.ceil(total / +limit) } 
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('[Admin Fund Requests Error]:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching fund requests',
+      error: err.message 
+    });
   }
 });
 
 // PUT /api/admin/fund-request/:id/approve
-router.put('/fund-request/:id/approve', async (req, res) => {
+router.put('/fund-request/:id/approve', protect, adminOnly, async (req, res) => {
   try {
-    const fundRequest = await FundRequest.findById(req.params.id);
+    const request = await FundRequest.findById(req.params.id);
     
-    if (!fundRequest) {
-      return res.status(404).json({ success: false, message: 'Fund request not found' });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
     }
     
-    if (fundRequest.status !== 'pending') {
+    if (request.status !== 'PENDING') {
       return res.status(400).json({ success: false, message: 'Request already processed' });
     }
     
-    // Update fund request
-    fundRequest.status = 'approved';
-    fundRequest.approvedBy = req.user._id;
-    fundRequest.approvedAt = Date.now();
-    fundRequest.adminNotes = req.body.adminNotes || '';
-    await fundRequest.save();
+    if (request.type !== 'DEPOSIT') {
+      return res.status(400).json({ success: false, message: 'Invalid request type' });
+    }
     
-    // Credit wallet
-    await User.findByIdAndUpdate(fundRequest.user, {
+    console.log('[Admin Fund Approve] Processing:', {
+      requestId: request._id,
+      userId: request.user,
+      amount: request.amount,
+      type: request.type
+    });
+    
+    // Update request
+    request.status = 'APPROVED';
+    request.approvedBy = req.user._id;
+    request.approvedAt = Date.now();
+    request.adminNotes = req.body.adminNotes || '';
+    await request.save();
+    
+    // Credit wallet - update BOTH fields
+    await User.findByIdAndUpdate(request.user, {
       $inc: { 
-        walletBalance: fundRequest.amount,
-        availableBalance: fundRequest.amount
+        walletBalance: request.amount,
+        availableBalance: request.amount
       }
     });
     
+    console.log('[Admin Fund Approve] Wallet credited ₹', request.amount);
+    
     // Create transaction
     await Transaction.create({
-      user: fundRequest.user,
+      user: request.user,
       type: 'DEPOSIT',
       direction: 'CREDIT',
-      amount: fundRequest.amount,
-      description: `Fund request approved (${fundRequest.paymentMethod})`,
-      paymentMethod: fundRequest.paymentMethod,
+      amount: request.amount,
+      description: `Fund request approved (${request.paymentMethod})`,
+      paymentMethod: request.paymentMethod,
       status: 'COMPLETED'
     });
     
     // Notify user
     await Notification.create({
-      user: fundRequest.user,
+      user: request.user,
       type: 'FUND_APPROVED',
       title: 'Fund Request Approved',
-      message: `₹${fundRequest.amount.toLocaleString('en-IN')} has been credited to your wallet.`,
-      data: { amount: fundRequest.amount, requestId: fundRequest._id }
+      message: `₹${request.amount.toLocaleString('en-IN')} has been credited to your wallet.`,
+      data: { amount: request.amount, requestId: request._id }
     });
     
-    // Emit socket event
-    req.app.get('io')?.to(`user:${fundRequest.user}`).emit('wallet:updated', {
-      balance: (await User.findById(fundRequest.user)).walletBalance
-    });
+    console.log('[Admin Fund Approve] Notification sent to user');
     
     res.json({ success: true, message: 'Fund request approved successfully' });
   } catch (err) {
+    console.error('[Admin Fund Approve Error]:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // PUT /api/admin/fund-request/:id/reject
-router.put('/fund-request/:id/reject', async (req, res) => {
+router.put('/fund-request/:id/reject', protect, adminOnly, async (req, res) => {
   try {
-    const fundRequest = await FundRequest.findById(req.params.id);
+    const request = await FundRequest.findById(req.params.id);
     
-    if (!fundRequest) {
-      return res.status(404).json({ success: false, message: 'Fund request not found' });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
     }
     
-    if (fundRequest.status !== 'pending') {
+    if (request.status !== 'PENDING') {
       return res.status(400).json({ success: false, message: 'Request already processed' });
     }
     
-    // Update fund request
-    fundRequest.status = 'rejected';
-    fundRequest.approvedBy = req.user._id;
-    fundRequest.approvedAt = Date.now();
-    fundRequest.adminNotes = req.body.adminNotes || req.body.reason || '';
-    await fundRequest.save();
+    if (request.type !== 'DEPOSIT') {
+      return res.status(400).json({ success: false, message: 'Invalid request type' });
+    }
+    
+    console.log('[Admin Fund Reject] Processing rejection:', {
+      requestId: request._id,
+      amount: request.amount
+    });
+    
+    // Update request
+    request.status = 'REJECTED';
+    request.approvedBy = req.user._id;
+    request.approvedAt = Date.now();
+    request.adminNotes = req.body.adminNotes || req.body.reason || '';
+    await request.save();
     
     // Notify user
     await Notification.create({
-      user: fundRequest.user,
+      user: request.user,
       type: 'FUND_REJECTED',
       title: 'Fund Request Rejected',
-      message: `Your fund request of ₹${fundRequest.amount.toLocaleString('en-IN')} has been rejected. Reason: ${fundRequest.adminNotes}`,
-      data: { amount: fundRequest.amount, requestId: fundRequest._id }
+      message: `Your fund request of ₹${request.amount.toLocaleString('en-IN')} has been rejected. Reason: ${request.adminNotes}`,
+      data: { amount: request.amount, requestId: request._id }
     });
+    
+    console.log('[Admin Fund Reject] Notification sent to user');
     
     res.json({ success: true, message: 'Fund request rejected' });
   } catch (err) {
+    console.error('[Admin Fund Reject Error]:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -619,122 +675,167 @@ router.put('/fund-request/:id/reject', async (req, res) => {
 // ── WITHDRAW REQUEST MANAGEMENT ───────────────
 // ───────────────────────────────────────────────
 
-// GET /api/admin/withdraw-requests - All withdrawal requests
-router.get('/withdraw-requests', async (req, res) => {
+// GET /api/admin/withdraw-requests - All WITHDRAW requests
+router.get('/withdraw-requests', protect, adminOnly, async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
-    const filter = {};
-    if (status) filter.status = status;
     
-    const requests = await WithdrawRequest.find(filter)
+    // Build filter - only WITHDRAW type
+    let filter = { type: 'WITHDRAW' };
+    if (status && status !== 'all') {
+      filter.status = status.toUpperCase();
+    }
+    
+    console.log('[Admin Withdraw Requests] Query:', { filter });
+    
+    const data = await FundRequest.find(filter)
       .populate('user', 'fullName email mobile clientId')
       .sort({ createdAt: -1 })
       .limit(+limit)
       .skip((+page - 1) * +limit);
     
-    const total = await WithdrawRequest.countDocuments(filter);
+    const total = await FundRequest.countDocuments(filter);
+    
+    console.log('[Admin Withdraw Requests] Found:', data.length, 'withdraw requests');
     
     res.json({ 
       success: true, 
-      data: requests, 
+      data,
       pagination: { total, page: +page, pages: Math.ceil(total / +limit) } 
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('[Admin Withdraw Requests Error]:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching withdraw requests',
+      error: err.message 
+    });
   }
 });
 
 // PUT /api/admin/withdraw-request/:id/approve
-router.put('/withdraw-request/:id/approve', async (req, res) => {
+router.put('/withdraw-request/:id/approve', protect, adminOnly, async (req, res) => {
   try {
-    const withdrawRequest = await WithdrawRequest.findById(req.params.id);
+    const request = await FundRequest.findById(req.params.id);
     
-    if (!withdrawRequest) {
-      return res.status(404).json({ success: false, message: 'Withdraw request not found' });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
     }
     
-    if (withdrawRequest.status !== 'pending') {
+    if (request.status !== 'PENDING') {
       return res.status(400).json({ success: false, message: 'Request already processed' });
     }
     
-    // Update withdraw request
-    withdrawRequest.status = 'approved';
-    withdrawRequest.approvedBy = req.user._id;
-    withdrawRequest.approvedAt = Date.now();
-    withdrawRequest.adminNotes = req.body.adminNotes || '';
-    await withdrawRequest.save();
+    if (request.type !== 'WITHDRAW') {
+      return res.status(400).json({ success: false, message: 'Invalid request type' });
+    }
     
-    // Deduct blocked amount permanently
-    await User.findByIdAndUpdate(withdrawRequest.user, {
-      $inc: { blockedAmount: -withdrawRequest.amount }
+    console.log('[Admin Withdraw Approve] Processing:', {
+      requestId: request._id,
+      userId: request.user,
+      amount: request.amount,
+      type: request.type
     });
+    
+    // Update request
+    request.status = 'APPROVED';
+    request.approvedBy = req.user._id;
+    request.approvedAt = Date.now();
+    request.adminNotes = req.body.adminNotes || '';
+    await request.save();
+    
+    // Deduct from wallet (amount was already blocked when request created)
+    await User.findByIdAndUpdate(request.user, {
+      $inc: { 
+        walletBalance: -request.amount,
+        availableBalance: -request.amount
+      }
+    });
+    
+    console.log('[Admin Withdraw Approve] Wallet debited ₹', request.amount);
     
     // Create transaction
     await Transaction.create({
-      user: withdrawRequest.user,
+      user: request.user,
       type: 'WITHDRAWAL',
       direction: 'DEBIT',
-      amount: withdrawRequest.amount,
-      description: `Withdrawal approved (${withdrawRequest.paymentMethod})`,
-      paymentMethod: withdrawRequest.paymentMethod,
+      amount: request.amount,
+      description: `Withdrawal approved (${request.paymentMethod})`,
+      paymentMethod: request.paymentMethod,
       status: 'COMPLETED'
     });
     
     // Notify user
     await Notification.create({
-      user: withdrawRequest.user,
+      user: request.user,
       type: 'WITHDRAW_APPROVED',
       title: 'Withdrawal Request Approved',
-      message: `₹${withdrawRequest.amount.toLocaleString('en-IN')} withdrawal has been approved. Amount will be transferred soon.`,
-      data: { amount: withdrawRequest.amount, requestId: withdrawRequest._id }
+      message: `₹${request.amount.toLocaleString('en-IN')} withdrawal has been approved. Amount will be transferred soon.`,
+      data: { amount: request.amount, requestId: request._id }
     });
+    
+    console.log('[Admin Withdraw Approve] Notification sent to user');
     
     res.json({ success: true, message: 'Withdrawal request approved successfully' });
   } catch (err) {
+    console.error('[Admin Withdraw Approve Error]:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // PUT /api/admin/withdraw-request/:id/reject
-router.put('/withdraw-request/:id/reject', async (req, res) => {
+router.put('/withdraw-request/:id/reject', protect, adminOnly, async (req, res) => {
   try {
-    const withdrawRequest = await WithdrawRequest.findById(req.params.id);
+    const request = await FundRequest.findById(req.params.id);
     
-    if (!withdrawRequest) {
-      return res.status(404).json({ success: false, message: 'Withdraw request not found' });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
     }
     
-    if (withdrawRequest.status !== 'pending') {
+    if (request.status !== 'PENDING') {
       return res.status(400).json({ success: false, message: 'Request already processed' });
     }
     
-    // Unblock the amount
-    await User.findByIdAndUpdate(withdrawRequest.user, {
+    if (request.type !== 'WITHDRAW') {
+      return res.status(400).json({ success: false, message: 'Invalid request type' });
+    }
+    
+    console.log('[Admin Withdraw Reject] Processing rejection:', {
+      requestId: request._id,
+      amount: request.amount
+    });
+    
+    // Refund to wallet
+    await User.findByIdAndUpdate(request.user, {
       $inc: { 
-        blockedAmount: -withdrawRequest.amount,
-        walletBalance: withdrawRequest.amount,
-        availableBalance: withdrawRequest.amount
+        walletBalance: request.amount,
+        availableBalance: request.amount
       }
     });
     
-    // Update withdraw request
-    withdrawRequest.status = 'rejected';
-    withdrawRequest.approvedBy = req.user._id;
-    withdrawRequest.approvedAt = Date.now();
-    withdrawRequest.adminNotes = req.body.adminNotes || req.body.reason || '';
-    await withdrawRequest.save();
+    console.log('[Admin Withdraw Reject] Amount ₹', request.amount, 'refunded to wallet');
+    
+    // Update request
+    request.status = 'REJECTED';
+    request.approvedBy = req.user._id;
+    request.approvedAt = Date.now();
+    request.adminNotes = req.body.adminNotes || req.body.reason || '';
+    await request.save();
     
     // Notify user
     await Notification.create({
-      user: withdrawRequest.user,
+      user: request.user,
       type: 'WITHDRAW_REJECTED',
       title: 'Withdrawal Request Rejected',
-      message: `Your withdrawal request of ₹${withdrawRequest.amount.toLocaleString('en-IN')} has been rejected. Reason: ${withdrawRequest.adminNotes}. Amount has been credited back to your wallet.`,
-      data: { amount: withdrawRequest.amount, requestId: withdrawRequest._id }
+      message: `Your withdrawal request of ₹${request.amount.toLocaleString('en-IN')} has been rejected. Reason: ${request.adminNotes}. Amount has been credited back to your wallet.`,
+      data: { amount: request.amount, requestId: request._id }
     });
     
-    res.json({ success: true, message: 'Withdrawal request rejected. Amount credited back.' });
+    console.log('[Admin Withdraw Reject] Notification sent to user');
+    
+    res.json({ success: true, message: 'Withdrawal request rejected. Amount refunded.' });
   } catch (err) {
+    console.error('[Admin Withdraw Reject Error]:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

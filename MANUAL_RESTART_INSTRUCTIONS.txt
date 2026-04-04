@@ -1,0 +1,134 @@
+========================================
+MANUAL SERVER RESTART INSTRUCTIONS
+========================================
+
+IMPORTANT: You MUST do this manually because the sandbox prevents automatic process killing.
+
+STEP 1: STOP ALL NODE PROCESSES
+--------------------------------
+Method A - Using Task Manager (Easiest):
+1. Press Ctrl + Shift + Esc to open Task Manager
+2. Go to "Processes" tab
+3. Find all "Node.js" or "node.exe" processes
+4. Right-click each one → "End task"
+5. Repeat until NO node processes remain
+
+Method B - Using Command Prompt (Admin):
+1. Open Command Prompt as Administrator (right-click → Run as admin)
+2. Type: taskkill /F /IM node.exe
+3. Press Enter
+
+
+STEP 2: START BACKEND SERVER
+-----------------------------
+1. Open a NEW Command Prompt window
+2. Navigate to backend folder:
+   cd c:\xampp\htdocs\tradex\backend
+
+3. Start the server:
+   node server.js
+
+4. Wait for these messages:
+   ✓ MongoDB connected
+   ✓ Price engine initialized
+   ✓ Market simulation started
+   
+5. If you see "Port 5000 is in use", go back to STEP 1
+
+
+STEP 3: START FRONTEND SERVER
+------------------------------
+1. Open ANOTHER NEW Command Prompt window
+2. Navigate to frontend folder:
+   cd c:\xampp\htdocs\tradex\frontend
+
+3. Start the dev server:
+   npm run dev
+
+4. Wait for this message:
+   VITE v5.x.x  ready in xxx ms
+   ➜  Local:   http://localhost:3000/
+   
+5. Note the port number (might be 3000, 3001, or 3002)
+
+
+STEP 4: VERIFY SYSTEM IS WORKING
+---------------------------------
+Open your browser and test:
+
+1. Backend API Test:
+   Open: http://localhost:5000/api/market?type=STOCK&limit=2
+   Expected: {"success":true,"count":2,"data":[...]}
+
+2. Frontend Test:
+   Open: http://localhost:3000 (or the port shown in step 3)
+   
+3. Login as Admin:
+   Email: admin@tradex.in
+   Password: Admin@123456
+
+4. Test Admin Pages:
+   - Visit: /admin/stocks → Should show 130 stocks
+   - Visit: /admin/forex → Should show 47 forex pairs
+   - Visit: /admin/options → Should show 328 options
+
+5. Check Browser Console (F12):
+   - Should see logs like:
+     [AdminStocks] API Response: {success: true, data: Array(130), ...}
+     [AdminForex] API Response: {success: true, data: Array(47), ...}
+     [AdminOptions] API Response: {success: true, data: Array(328), ...}
+
+
+TROUBLESHOOTING
+---------------
+Problem: "Port 5000 is already in use"
+Solution: You didn't kill all node processes. Use Task Manager again.
+
+Problem: Admin pages still empty
+Solution: 
+1. Check backend console for errors
+2. Check browser console (F12) for red errors
+3. Verify database has data: cd backend && node utils/checkData.js
+
+Problem: Options not showing
+Solution:
+1. Make sure backend restarted successfully
+2. Check if sorting fix was applied (backend/routes/market.js line 43-51)
+3. Verify options are active: cd backend && node utils/fixAllInstrumentsActive.js
+
+
+WHAT WAS FIXED
+--------------
+✓ Database: All 505 instruments set to isActive=true
+✓ Backend API: Default limit increased from 100 to 1000
+✓ Backend API: Smart sorting added (options by expiry/strike, not volume)
+✓ Frontend: Added console logging to debug API responses
+✓ Frontend: API endpoints corrected (/market not /admin/market)
+✓ React Hooks: Fixed AdminTrades.jsx hook ordering
+
+
+EXPECTED RESULTS AFTER RESTART
+-------------------------------
+✅ Indian Stocks page → Shows 130 stocks with prices
+✅ Forex page → Shows 47 currency pairs
+✅ Options page → Shows 328 option contracts in chain view
+✅ Trading page → All 3 market tabs work
+✅ Trade Monitor → Shows real user trades
+✅ No console errors
+✅ No blank pages
+✅ Buy/Sell orders work
+✅ Wallet updates correctly
+
+
+FOR ANY ISSUES
+--------------
+If something doesn't work after restart:
+
+1. Check backend console output
+2. Check browser console (F12) → Console tab
+3. Run verification script: verify-system.bat
+4. Review COMPLETE_SYSTEM_FIX.md for detailed troubleshooting
+
+========================================
+GOOD LUCK! System should work perfectly after restart.
+========================================

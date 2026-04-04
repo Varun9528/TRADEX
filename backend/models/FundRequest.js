@@ -7,6 +7,14 @@ const fundRequestSchema = new mongoose.Schema({
     required: true 
   },
   
+  // Request Type - DEPOSIT or WITHDRAW
+  type: {
+    type: String,
+    enum: ['DEPOSIT', 'WITHDRAW'],
+    required: true,
+    default: 'DEPOSIT'
+  },
+  
   // Request Details
   amount: { 
     type: Number, 
@@ -44,8 +52,8 @@ const fundRequestSchema = new mongoose.Schema({
   // Status
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
+    enum: ['PENDING', 'APPROVED', 'REJECTED'],
+    default: 'PENDING'
   },
   
   adminNotes: {

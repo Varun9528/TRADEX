@@ -6,6 +6,7 @@ import { Activity, User, Calendar, TrendingUp, TrendingDown } from 'lucide-react
 export default function AdminTrades() {
   const [filter, setFilter] = useState('all'); // all, open, closed
 
+  // ALL HOOKS MUST BE AT TOP LEVEL - before any returns
   const { data: tradesData, isLoading } = useQuery({
     queryKey: ['admin-trades', filter],
     queryFn: async () => {
@@ -14,7 +15,15 @@ export default function AdminTrades() {
     },
   });
 
-  // Handle loading state
+  const { data: positionsData } = useQuery({
+    queryKey: ['admin-positions'],
+    queryFn: async () => {
+      const { data } = await adminAPI.getPositions();
+      return data.data || [];
+    },
+  });
+
+  // Handle loading state - AFTER all hooks
   if (!tradesData) {
     return (
       <div className="min-h-screen bg-bg-primary pb-20 md:pb-4">
@@ -24,14 +33,6 @@ export default function AdminTrades() {
       </div>
     );
   }
-
-  const { data: positionsData } = useQuery({
-    queryKey: ['admin-positions'],
-    queryFn: async () => {
-      const { data } = await adminAPI.getPositions();
-      return data.data || [];
-    },
-  });
 
   const getTradeTypeBadge = (type) => {
     return (

@@ -3,14 +3,17 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 /**
- * Fetch real-time price for a single stock from TwelveData via backend
- * @param {string} symbol - Stock symbol (e.g., RELIANCE.NS)
+ * Fetch real-time price for a market instrument from database
+ * @param {string} symbol - Instrument symbol
  * @returns {Promise<object>} Price data
  */
 export const fetchRealTimePrice = async (symbol) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/stocks/live-price/${symbol}`);
-    return response.data.data;
+    const response = await axios.get(`${API_BASE_URL}/api/market`);
+    const data = response.data.data || [];
+    const instrument = data.find(inst => inst.symbol === symbol);
+    if (!instrument) throw new Error('Instrument not found');
+    return instrument;
   } catch (error) {
     console.error(`[MarketService] Error fetching price for ${symbol}:`, error);
     throw error;
@@ -18,8 +21,8 @@ export const fetchRealTimePrice = async (symbol) => {
 };
 
 /**
- * Fetch historical candlestick data from TwelveData via backend
- * @param {string} symbol - Stock symbol
+ * Fetch historical candlestick data from simulation backend
+ * @param {string} symbol - Instrument symbol
  * @param {string} interval - Candle interval (1min, 5min, 15min, 1h, 1D)
  * @param {number} outputsize - Number of candles (default: 50)
  * @returns {Promise<Array>} Array of candle data
@@ -27,7 +30,7 @@ export const fetchRealTimePrice = async (symbol) => {
 export const fetchCandles = async (symbol, interval = '1min', outputsize = 50) => {
   try {
     const response = await axios.get(
-      `${API_BASE_URL}/api/stocks/candles/${symbol}`,
+      `${API_BASE_URL}/api/market/chart/${symbol}`,
       {
         params: { interval, outputsize },
       }
@@ -40,48 +43,24 @@ export const fetchCandles = async (symbol, interval = '1min', outputsize = 50) =
 };
 
 /**
- * Fetch detailed quote data for a stock
- * @param {string} symbol - Stock symbol
+ * Fetch detailed quote data for a market instrument
+ * @param {string} symbol - Instrument symbol
  * @returns {Promise<object>} Quote data with OHLC, change, volume, etc.
  */
 export const fetchQuote = async (symbol) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/stocks/quote/${symbol}`);
-    return response.data.data;
+    const response = await axios.get(`${API_BASE_URL}/api/market`);
+    const data = response.data.data || [];
+    const instrument = data.find(inst => inst.symbol === symbol);
+    if (!instrument) throw new Error('Instrument not found');
+    return instrument;
   } catch (error) {
     console.error(`[MarketService] Error fetching quote for ${symbol}:`, error);
     throw error;
   }
 };
 
-/**
- * Subscribe to real-time price updates via Socket.IO
- * @param {Function} callback - Function to call when price updates arrive
- * @returns {Function} Unsubscribe function
- */
-export const subscribeToPriceUpdates = (socket, callback) => {
-  if (!socket) {
-    console.error('[MarketService] Socket not provided');
-    return () => {};
-  }
 
-  socket.on('price:update', callback);
-
-  // Return unsubscribe function
-  return () => {
-    socket.off('price:update', callback);
-  };
-};
-
-/**
- * Join the stocks room to receive price updates
- * @param {Socket} socket - Socket.IO instance
- */
-export const joinStocksRoom = (socket) => {
-  if (socket) {
-    socket.emit('join:stocks');
-  }
-};
 
 /**
  * Format price for display (Indian Rupee)
@@ -151,8 +130,6 @@ export default {
   fetchRealTimePrice,
   fetchCandles,
   fetchQuote,
-  subscribeToPriceUpdates,
-  joinStocksRoom,
   formatPrice,
   formatPercent,
   calculatePnL,

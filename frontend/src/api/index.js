@@ -109,11 +109,6 @@ export const stockAPI = {
   getOne: (symbol) => api.get(`/stocks/${symbol}`),
   getHistory: (symbol) => api.get(`/stocks/${symbol}/history`),
   getIndices: () => api.get('/stocks/meta/indices'),
-  // NEW: TwelveData integration
-  getLivePrice: (symbol) => api.get(`/stocks/live-price/${symbol}`),
-  getCandles: (symbol, interval = '1min', outputsize = 50) => 
-    api.get(`/stocks/candles/${symbol}`, { params: { interval, outputsize } }),
-  getQuote: (symbol) => api.get(`/stocks/quote/${symbol}`),
 };
 
 export const tradeAPI = {
@@ -154,7 +149,7 @@ export const watchlistAPI = {
 
 export const marketAPI = {
   getAll: (params) => api.get('/market', { params }),
-  getByType: (type) => api.get('/market', { params: { type } }),
+  getByType: (type, limit = 1000) => api.get('/market', { params: { type, limit } }),
   getOne: (symbol) => api.get(`/market/${symbol}`),
   search: (query) => api.get('/market', { params: { search: query } }),
 };
@@ -175,8 +170,8 @@ export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
   getUsers: (params) => api.get('/admin/users', { params }),
   updateUserStatus: (id, isActive) => api.patch(`/admin/users/${id}/status`, { isActive }),
-  updateUserTradingStatus: (id, tradingEnabled) => api.patch(`/admin/users/${id}/trading`, { tradingEnabled }),
-  placeTradeForUser: (data) => api.post('/admin/trade', data),
+  updateUserTradingStatus: (id, tradingEnabled) => api.patch(`/admin/toggle-trading/${id}`, { enabled: tradingEnabled }),
+  placeOrderForUser: (data) => api.post('/admin/place-order-for-user', data),
   getKYCList: (params) => api.get('/admin/kyc', { params }),
   getKYCDetail: (userId) => api.get(`/admin/kyc/${userId}`),
   reviewKYC: (userId, data) => api.patch(`/admin/kyc/${userId}/review`, data),
@@ -199,12 +194,13 @@ export const adminAPI = {
   getPositions: (params) => api.get('/admin/positions', { params }),
   
   // Market management (NEW)
+  getInstruments: (params) => api.get('/market', { params }),
   getMarketInstruments: (params) => api.get('/market', { params }),
-  createInstrument: (data) => api.post('/admin/market', data),
-  updateInstrument: (id, data) => api.put(`/admin/market/${id}`, data),
-  deleteInstrument: (id) => api.delete(`/admin/market/${id}`),
-  updatePrice: (id, price) => api.patch(`/admin/market/price/${id}`, { price }),
-  getMarketStats: () => api.get('/admin/market/stats/dashboard'),
+  createInstrument: (data) => api.post('/market', data),
+  updateInstrument: (id, data) => api.put(`/market/${id}`, data),
+  deleteInstrument: (id) => api.delete(`/market/${id}`),
+  updatePrice: (id, price) => api.patch(`/market/price/${id}`, { price }),
+  getMarketStats: () => api.get('/market/stats/dashboard'),
 };
 
 export default api;

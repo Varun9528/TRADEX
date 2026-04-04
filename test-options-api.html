@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options API Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        h1 {
+            color: #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: #1e293b;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .result {
+            background: #0f172a;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .info {
+            color: #f59e0b;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        th {
+            background: #334155;
+            color: #3b82f6;
+        }
+        tr:hover {
+            background: #1e293b;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Options API Debugging Tool</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Basic API Connectivity</h2>
+        <button onclick="testBasicAPI()">Test API Connection</button>
+        <div id="basic-result" class="result">Click button to test...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Fetch Options (type=OPTION)</h2>
+        <button onclick="testOptionsAPI()">Fetch Options</button>
+        <div id="options-result" class="result">Click button to fetch options...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Verify Option Fields</h2>
+        <button onclick="testOptionFields()">Check Field Structure</button>
+        <div id="fields-result" class="result">Click button to verify fields...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Case Insensitivity Test</h2>
+        <button onclick="testCaseSensitivity()">Test Case Sensitivity</button>
+        <div id="case-result" class="result">Click button to test case sensitivity...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Sample Options Data</h2>
+        <button onclick="loadSampleOptions()">Load Sample Options</button>
+        <div id="sample-result">
+            <p class="info">Click to load and display sample options data</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+
+        async function testBasicAPI() {
+            const resultDiv = document.getElementById('basic-result');
+            resultDiv.innerHTML = '<span class="info">Testing...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/market?type=OPTION&limit=1`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<span class="success">✅ API is working!</span>\nStatus: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ API returned error:</span>\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Network Error:</span>\n${error.message}\n\nMake sure backend is running on port 5000`;
+            }
+        }
+
+        async function testOptionsAPI() {
+            const resultDiv = document.getElementById('options-result');
+            resultDiv.innerHTML = '<span class="info">Fetching options...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/market?type=OPTION&limit=1000`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const count = data.count || data.data?.length || 0;
+                    resultDiv.innerHTML = `
+<span class="success">✅ Successfully fetched ${count} options!</span>
+
+Count: ${count}
+Success: ${data.success}
+
+First option preview:
+${JSON.stringify(data.data[0], null, 2)}
+                    `.trim();
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ API Error:</span>\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Error:</span>\n${error.message}`;
+            }
+        }
+
+        async function testOptionFields() {
+            const resultDiv = document.getElementById('fields-result');
+            resultDiv.innerHTML = '<span class="info">Checking field structure...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/market?type=OPTION&limit=1`);
+                const data = await response.json();
+                
+                if (!data.success || !data.data || data.data.length === 0) {
+                    resultDiv.innerHTML = '<span class="error">❌ No options found</span>';
+                    return;
+                }
+                
+                const option = data.data[0];
+                const requiredFields = ['symbol', 'type', 'strikePrice', 'expiryDate', 'lotSize', 'optionType', 'price'];
+                const missingFields = requiredFields.filter(field => !(field in option));
+                
+                let html = '<table>';
+                html += '<tr><th>Field</th><th>Present</th><th>Value</th></tr>';
+                
+                requiredFields.forEach(field => {
+                    const present = field in option;
+                    const value = option[field] !== null && option[field] !== undefined ? option[field] : 'null/undefined';
+                    html += `
+<tr>
+    <td>${field}</td>
+    <td>${present ? '<span class="success">✅</span>' : '<span class="error">❌</span>'}</td>
+    <td>${value}</td>
+</tr>`;
+                });
+                
+                html += '</table>';
+                
+                if (missingFields.length === 0) {
+                    html = `<span class="success">✅ All required fields present!</span>\n\n` + html;
+                } else {
+                    html = `<span class="error">❌ Missing fields: ${missingFields.join(', ')}</span>\n\n` + html;
+                }
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Error:</span>\n${error.message}`;
+            }
+        }
+
+        async function testCaseSensitivity() {
+            const resultDiv = document.getElementById('case-result');
+            resultDiv.innerHTML = '<span class="info">Testing case sensitivity...</span>';
+            
+            try {
+                const [upperResponse, lowerResponse] = await Promise.all([
+                    fetch(`${API_BASE}/market?type=OPTION&limit=1`),
+                    fetch(`${API_BASE}/market?type=option&limit=1`)
+                ]);
+                
+                const upperData = await upperResponse.json();
+                const lowerData = await lowerResponse.json();
+                
+                const upperCount = upperData.count || upperData.data?.length || 0;
+                const lowerCount = lowerData.count || lowerData.data?.length || 0;
+                
+                resultDiv.innerHTML = `
+<span class="${upperCount > 0 ? 'success' : 'error'}">Uppercase "OPTION": ${upperCount} results ${upperCount > 0 ? '✅' : '❌'}</span>
+<span class="${lowerCount > 0 ? 'success' : 'error'}">Lowercase "option": ${lowerCount} results ${lowerCount > 0 ? '✅' : '❌'}</span>
+
+Result: ${upperCount > 0 && lowerCount > 0 ? 
+    '<span class="success">✅ Case-insensitive filtering works!</span>' : 
+    '<span class="error">❌ Case sensitivity issue detected</span>'}
+                `.trim();
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Error:</span>\n${error.message}`;
+            }
+        }
+
+        async function loadSampleOptions() {
+            const resultDiv = document.getElementById('sample-result');
+            resultDiv.innerHTML = '<p class="info">Loading sample options...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/market?type=OPTION&limit=10`);
+                const data = await response.json();
+                
+                if (!data.success || !data.data || data.data.length === 0) {
+                    resultDiv.innerHTML = '<p class="error">No options found</p>';
+                    return;
+                }
+                
+                let html = '<table>';
+                html += '<tr><th>Symbol</th><th>Type</th><th>Strike</th><th>Expiry</th><th>Lot Size</th><th>Option Type</th><th>Price</th></tr>';
+                
+                data.data.forEach(opt => {
+                    const expiry = opt.expiryDate ? new Date(opt.expiryDate).toLocaleDateString() : 'N/A';
+                    html += `
+<tr>
+    <td>${opt.symbol}</td>
+    <td>${opt.type}</td>
+    <td>${opt.strikePrice || 'N/A'}</td>
+    <td>${expiry}</td>
+    <td>${opt.lotSize || 'N/A'}</td>
+    <td>${opt.optionType || 'N/A'}</td>
+    <td>₹${opt.price?.toFixed(2) || '0.00'}</td>
+</tr>`;
+                });
+                
+                html += '</table>';
+                html += `<p class="success" style="margin-top: 10px;">Showing ${data.data.length} of ${data.count} options</p>`;
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error loading options: ${error.message}</p>`;
+            }
+        }
+
+        // Auto-run basic test on page load
+        window.addEventListener('load', () => {
+            testBasicAPI();
+        });
+    </script>
+</body>
+</html>

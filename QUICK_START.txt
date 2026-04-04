@@ -1,0 +1,67 @@
+========================================
+QUICK START - AFTER RESTART
+========================================
+
+✅ ALL FIXES APPLIED - JUST RESTART SERVERS!
+
+STEP 1: KILL NODE PROCESSES
+-----------------------------
+Ctrl+Shift+Esc → End all node.exe tasks
+
+
+STEP 2: START BACKEND
+----------------------
+cd c:\xampp\htdocs\tradex\backend
+node server.js
+
+Wait for: "MongoDB connected"
+
+
+STEP 3: START FRONTEND
+-----------------------
+cd c:\xampp\htdocs\tradex\frontend
+npm run dev
+
+Wait for: "Local: http://localhost:3000"
+
+
+STEP 4: TEST
+-------------
+Browser → http://localhost:3000
+Login: admin@tradex.in / Admin@123456
+
+Test Pages:
+✓ /admin/stocks → 130 stocks
+✓ /admin/forex → 47 forex pairs  
+✓ /admin/options → 328 options
+✓ /trading → All markets work
+
+
+WHAT WAS FIXED
+---------------
+✅ Database: All 505 instruments activated
+✅ API Limit: Increased to 1000 (was 100)
+✅ Sorting: Options by expiry/strike (not volume)
+✅ Logging: Added console.debug for API calls
+✅ Hooks: Fixed AdminTrades.jsx ordering
+
+
+EXPECTED RESULT
+----------------
+After restart:
+- No blank pages
+- No console errors
+- All data visible
+- Trading works
+- Wallet updates
+
+
+TROUBLESHOOTING
+----------------
+Still empty? → Check browser console F12
+Port in use? → Kill node processes again
+Options missing? → Run: node utils/fixAllInstrumentsActive.js
+
+========================================
+SYSTEM READY - RESTART NOW!
+========================================

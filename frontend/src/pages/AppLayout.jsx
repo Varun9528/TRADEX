@@ -4,11 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, TrendingUp, Star, Briefcase, ClipboardList,
   Wallet, FileText, Bell, Gift, User, Settings, LogOut, DollarSign,
-  ChevronRight, Menu, X
+  ChevronRight, Menu, X, BarChart3, Activity
 } from 'lucide-react';
 import useAuthStore from '../context/authStore';
-import { useSocket } from '../context/SocketContext';
-import { stockAPI, notificationAPI } from '../api';
+
+import { marketAPI, notificationAPI } from '../api';
 import toast from 'react-hot-toast';
 import NotificationBell from '../components/NotificationBell';
 import MobileBottomNav from '../components/MobileBottomNav';
@@ -28,13 +28,22 @@ const NAV_ITEMS = [
 
 const ADMIN_NAV = [
   { label: 'Admin Dashboard', icon: Settings, path: '/admin' },
+  { 
+    label: 'Market Management', 
+    icon: TrendingUp, 
+    path: '/admin/market',
+    children: [
+      { label: 'Indian Stocks', icon: BarChart3, path: '/admin/stocks' },
+      { label: 'Forex Market', icon: DollarSign, path: '/admin/forex' },
+      { label: 'Options Chain', icon: Activity, path: '/admin/options' },
+    ]
+  },
   { label: 'Fund Requests', icon: DollarSign, path: '/admin/fund-requests' },
   { label: 'Withdraw Requests', icon: DollarSign, path: '/admin/withdraw-requests' },
   { label: 'Trade Monitor', icon: TrendingUp, path: '/admin/trades' },
   { label: 'KYC Approvals', icon: FileText, path: '/admin/kyc' },
   { label: 'Users', icon: User, path: '/admin/users' },
-  { label: 'Wallet Control', icon: Wallet, path: '/admin/wallet' },
-  { label: 'Stock Prices', icon: TrendingUp, path: '/admin/stocks' },
+  // Removed: Wallet Control - duplicate of dedicated fund/withdraw pages
 ];
 
 // Ticker component - Zerodha style
@@ -60,54 +69,43 @@ export default function AppLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const socket = useSocket();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tickerStocks, setTickerStocks] = useState([]);
   const [indices, setIndices] = useState({ nifty50: { value: 24352, change: 0.42 }, sensex: { value: 79841, change: 0.38 } });
 
-  // Fetch stocks for ticker
+  // Fetch market instruments for ticker
   const { data: stocksData } = useQuery({
-    queryKey: ['stocks-ticker'],
-    queryFn: () => stockAPI.getAll({ limit: 15 }),
-    refetchInterval: 10000,
+    queryKey: ['market-instruments-ticker'],
+    queryFn: async () => {
+      try {
+        const response = await marketAPI.getAll({ limit: 15 });
+        return Array.isArray(response?.data) ? response.data : [];
+      } catch (err) {
+        console.error('[AppLayout] Market API failed:', err.message);
+        return [];
+      }
+    },
+    staleTime: 30000, // Cache for 30 seconds
+    cacheTime: 60000, // Keep in cache for 1 minute
+    refetchOnWindowFocus: false,
+    refetchInterval: false, // Disable auto-refetch
+    retry: 1,
   });
 
   // Fetch unread notification count
   const { data: notifData } = useQuery({
     queryKey: ['notifications-count'],
     queryFn: () => notificationAPI.getAll({ limit: 1 }),
-    refetchInterval: 30000,
+    staleTime: 30000, // Cache for 30 seconds
+    cacheTime: 60000, // Keep in cache for 1 minute
+    refetchOnWindowFocus: false,
+    refetchInterval: false, // Disable auto-refetch
+    retry: 1,
   });
 
   useEffect(() => {
-    if (stocksData?.data?.data) setTickerStocks(stocksData.data.data);
+    if (stocksData && Array.isArray(stocksData)) setTickerStocks(stocksData);
   }, [stocksData]);
-
-  // Socket: live price updates for ticker
-  useEffect(() => {
-    if (!socket) return;
-    socket.on('price:update', (updates) => {
-      setTickerStocks(prev => {
-        const map = {};
-        updates.forEach(u => { map[u.symbol] = u; });
-        return prev.map(s => map[s.symbol] ? { ...s, ...map[s.symbol] } : s);
-      });
-    });
-    // Listen for user-specific events
-    socket.on('kyc:status_update', ({ status }) => {
-      toast(status === 'approved' ? '🎉 KYC Approved! You can now trade.' : '❌ KYC Rejected. Check notifications.', {
-        icon: status === 'approved' ? '✅' : '❌',
-      });
-    });
-    socket.on('order:executed', ({ order }) => {
-      toast.success(`Order executed: ${order.transactionType} ${order.executedQuantity} ${order.symbol}`);
-    });
-    return () => {
-      socket.off('price:update');
-      socket.off('kyc:status_update');
-      socket.off('order:executed');
-    };
-  }, [socket]);
 
   const handleLogout = async () => {
     await logout();
@@ -167,13 +165,42 @@ export default function AppLayout() {
         {isAdmin && (
           <>
             <div className="px-4 py-1.5 mt-4 text-[10px] text-text-secondary uppercase tracking-widest border-t border-border pt-3">Admin Panel</div>
-            {ADMIN_NAV.map(item => (
-              <NavLink key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                <item.icon size={16} />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+            {ADMIN_NAV.map(item => {
+              // If item has children (nested menu)
+              if (item.children) {
+                return (
+                  <div key={item.path}>
+                    <div className="px-4 py-2 text-xs font-semibold text-text-secondary flex items-center gap-2">
+                      <item.icon size={14} />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.children.map(child => (
+                      <NavLink 
+                        key={child.path} 
+                        to={child.path} 
+                        onClick={() => setSidebarOpen(false)}
+                        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} pl-12`}
+                      >
+                        <child.icon size={14} />
+                        <span className="text-xs">{child.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                );
+              }
+              // Regular menu item
+              return (
+                <NavLink 
+                  key={item.path} 
+                  to={item.path} 
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <item.icon size={16} />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
           </>
         )}
       </nav>

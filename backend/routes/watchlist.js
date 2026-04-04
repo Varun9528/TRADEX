@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Watchlist } = require('../models/Watchlist');
-const Stock = require('../models/Stock');
+const MarketInstrument = require('../models/MarketInstrument');
 const { protect } = require('../middleware/auth');
 const { normalizeSymbol } = require('../utils/symbols');
 
@@ -11,22 +11,34 @@ router.use(protect);
 router.get('/', async (req, res) => {
   try {
     let watchlist = await Watchlist.findOne({ user: req.user._id });
-    if (!watchlist) { watchlist = await Watchlist.create({ user: req.user._id, stocks: [] }); }
+    if (!watchlist) {
+      // Return empty array instead of crashing
+      return res.json({ success: true, data: [] });
+    }
 
     const symbols = watchlist.stocks.map(s => s.symbol);
-    const stocks = await Stock.find({ symbol: { $in: symbols } })
-      .select('symbol name sector logo currentPrice previousClose change changePercent volume weekHigh52 weekLow52');
+    
+    // Use MarketInstrument instead of Stock
+    const instruments = await MarketInstrument.find({ 
+      symbol: { $in: symbols },
+      isActive: true 
+    }).select('symbol name type exchange price changePercent volume sector');
 
-    const stockMap = {};
-    stocks.forEach(s => { stockMap[s.symbol] = s; });
+    const instrumentMap = {};
+    instruments.forEach(inst => { 
+      instrumentMap[inst.symbol] = inst; 
+    });
 
-    const enriched = watchlist.stocks.map(ws => ({
-      ...ws.toObject(),
-      stockData: stockMap[ws.symbol] || null,
-    }));
+    const enriched = watchlist.stocks
+      .filter(ws => instrumentMap[ws.symbol]) // Only include instruments that exist
+      .map(ws => ({
+        ...ws.toObject(),
+        instrumentData: instrumentMap[ws.symbol] || null,
+      }));
 
     res.json({ success: true, data: enriched });
   } catch (err) {
+    console.error('[Watchlist API] Error:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -37,8 +49,15 @@ router.post('/add', async (req, res) => {
     const { symbol } = req.body;
     if (!symbol) return res.status(400).json({ success: false, message: 'Symbol required.' });
 
-    const stock = await Stock.findOne({ symbol: normalizeSymbol(symbol), isActive: true });
-    if (!stock) return res.status(404).json({ success: false, message: 'Stock not found.' });
+    // Use MarketInstrument instead of Stock
+    const instrument = await MarketInstrument.findOne({ 
+      symbol: normalizeSymbol(symbol), 
+      isActive: true 
+    });
+    
+    if (!instrument) {
+      return res.status(404).json({ success: false, message: 'Instrument not found.' });
+    }
 
     let watchlist = await Watchlist.findOne({ user: req.user._id });
     if (!watchlist) watchlist = new Watchlist({ user: req.user._id, stocks: [] });
@@ -47,10 +66,10 @@ router.post('/add', async (req, res) => {
     if (already) return res.status(409).json({ success: false, message: 'Stock already in watchlist.' });
 
     if (watchlist.stocks.length >= 50) {
-      return res.status(400).json({ success: false, message: 'Watchlist limit is 50 stocks.' });
+      return res.status(400).json({ success: false, message: 'Watchlist limit is 50 instruments.' });
     }
 
-    watchlist.stocks.push({ symbol: normalizeSymbol(symbol), stock: stock._id });
+    watchlist.stocks.push({ symbol: normalizeSymbol(symbol) });
     await watchlist.save();
 
     res.json({ success: true, message: `${symbol} added to watchlist.` });

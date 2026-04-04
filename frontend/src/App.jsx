@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './context/authStore';
-import { SocketProvider } from './context/SocketContext';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -32,12 +31,14 @@ import AccountPage from './pages/AccountPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminKYC from './pages/admin/AdminKYC';
 import AdminUsers from './pages/admin/AdminUsers';
-import AdminWallet from './pages/admin/AdminWallet';
-import AdminStocks from './pages/admin/AdminStocks';
+// Removed: AdminWallet - duplicate of dedicated fund/withdraw pages
+import { AdminMarket } from './pages/admin/AdminPages';
+import { AdminStocksManager } from './pages/admin/AdminStocksManager';
+import { AdminForexManager } from './pages/admin/AdminForexManager';
+import { AdminOptionsManager } from './pages/admin/AdminOptionsManager';
 import AdminFundRequests from './pages/admin/AdminFundRequests';
 import AdminWithdrawRequests from './pages/admin/AdminWithdrawRequests';
 import AdminTrades from './pages/admin/AdminTrades';
-import AdminMarketManagement from './pages/admin/AdminMarketManagement';
 
 // ─── AUTH PROTECTED ROUTES ─────────────────────────────────
 
@@ -78,7 +79,19 @@ export default function App() {
   useEffect(() => { initialize(); }, []);
 
   return (
-    <SocketProvider>
+    <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1a202c',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.1)',
+          },
+          success: { iconTheme: { primary: '#00d084', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ff4f6a', secondary: '#fff' } },
+        }}
+      />
       <BrowserRouter
         future={{
           v7_startTransition: true,
@@ -116,31 +129,21 @@ export default function App() {
 
               {/* Admin */}
               <Route path="admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
-              <Route path="admin/market" element={<ProtectedRoute adminOnly><AdminMarketManagement /></ProtectedRoute>} />
+              <Route path="admin/market" element={<ProtectedRoute adminOnly><AdminMarket /></ProtectedRoute>} />
+              <Route path="admin/stocks" element={<ProtectedRoute adminOnly><AdminStocksManager /></ProtectedRoute>} />
+              <Route path="admin/forex" element={<ProtectedRoute adminOnly><AdminForexManager /></ProtectedRoute>} />
+              <Route path="admin/options" element={<ProtectedRoute adminOnly><AdminOptionsManager /></ProtectedRoute>} />
               <Route path="admin/fund-requests" element={<ProtectedRoute adminOnly><AdminFundRequests /></ProtectedRoute>} />
               <Route path="admin/withdraw-requests" element={<ProtectedRoute adminOnly><AdminWithdrawRequests /></ProtectedRoute>} />
               <Route path="admin/trades" element={<ProtectedRoute adminOnly><AdminTrades /></ProtectedRoute>} />
               <Route path="admin/kyc" element={<ProtectedRoute adminOnly><AdminKYC /></ProtectedRoute>} />
               <Route path="admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
-              <Route path="admin/wallet" element={<ProtectedRoute adminOnly><AdminWallet /></ProtectedRoute>} />
-              <Route path="admin/stocks" element={<ProtectedRoute adminOnly><AdminStocks /></ProtectedRoute>} />
+              {/* Removed: /admin/wallet route - duplicate of dedicated fund/withdraw pages */}
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#1a202c',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.1)',
-          },
-          success: { iconTheme: { primary: '#00d084', secondary: '#fff' } },
-          error: { iconTheme: { primary: '#ff4f6a', secondary: '#fff' } },
-        }}
-      />
-    </SocketProvider>
+    </>
   );
 }

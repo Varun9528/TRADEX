@@ -15,7 +15,7 @@ export function PortfolioPage() {
         throw err;
       }
     },
-    refetchInterval: 3000, // Update every 3 seconds
+    refetchInterval: 5000, // Update every 5 seconds
   });
   
   const holdings = data?.data?.holdings || [];
@@ -304,7 +304,7 @@ export function OrdersPage() {
 
 // ─── WATCHLIST PAGE ────────────────────────────────────────
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { watchlistAPI, stockAPI as stkAPI } from '../api';
+import { watchlistAPI } from '../api';
 import { Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 

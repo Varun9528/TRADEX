@@ -1,23 +1,26 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { stockAPI, watchlistAPI } from '../api';
-import { useSocket } from '../context/SocketContext';
+import { marketAPI, watchlistAPI } from '../api';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import BottomNav from '../components/BottomNav';
-import { TrendingUp, TrendingDown, Plus, X, Search, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, X, Search, ChevronDown } from 'lucide-react';
 
 export default function WatchlistPage() {
   const navigate = useNavigate();
   const [group, setGroup] = useState('all'); // all, gainers, losers
   const [search, setSearch] = useState('');
-  const socket = useSocket();
 
   const { data: watchlistData, isLoading, refetch } = useQuery({
     queryKey: ['watchlist'],
     queryFn: async () => {
-      const { data } = await watchlistAPI.get();
-      return data.data || [];
+      try {
+        const { data } = await watchlistAPI.get();
+        return data.data || [];
+      } catch (err) {
+        console.error('[WatchlistPage] API error:', err.message);
+        return [];
+      }
     },
     refetchInterval: 5000,
   });

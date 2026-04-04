@@ -48,6 +48,10 @@ const orderSchema = new mongoose.Schema({
   tag: String,
   notes: String,
 
+  // Track who placed the order (USER or ADMIN)
+  placedBy: { type: String, enum: ['USER', 'ADMIN'], default: 'USER' },
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // If placed by admin
+
 }, { timestamps: true });
 
 orderSchema.index({ user: 1, createdAt: -1 });

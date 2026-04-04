@@ -147,6 +147,7 @@ router.post('/fund-request', [
     const fundRequest = await FundRequest.create({
       user: req.user._id,
       amount,
+      type: 'DEPOSIT',  // ✅ Explicitly set type
       paymentMethod,
       transactionReference,
       upiId,
@@ -156,7 +157,14 @@ router.post('/fund-request', [
       ifscCode,
       cardNumber: cardNumber ? `XXXX-XXXX-${cardNumber.slice(-4)}` : null,
       screenshot: screenshot || null,
-      status: 'pending'
+      status: 'PENDING'  // ✅ Uppercase to match enum
+    });
+
+    console.log('[User Fund Request] Created deposit request:', {
+      requestId: fundRequest._id,
+      userId: req.user._id,
+      amount,
+      type: 'DEPOSIT'
     });
 
     // Create notification for user
@@ -218,16 +226,24 @@ router.post('/withdraw-request', [
       $inc: { walletBalance: -amount, blockedAmount: amount }
     });
 
-    // Create withdraw request
-    const withdrawRequest = await WithdrawRequest.create({
+    // Create withdraw request using FundRequest model with type='WITHDRAW'
+    const withdrawRequest = await FundRequest.create({
       user: req.user._id,
       amount,
+      type: 'WITHDRAW',  // ✅ Use unified model with WITHDRAW type
       paymentMethod,
       bankName,
       accountNumber,
       ifscCode,
       upiId,
-      status: 'pending'
+      status: 'PENDING'  // ✅ Uppercase
+    });
+
+    console.log('[User Withdraw Request] Created withdraw request:', {
+      requestId: withdrawRequest._id,
+      userId: req.user._id,
+      amount,
+      type: 'WITHDRAW'
     });
 
     // Create notification

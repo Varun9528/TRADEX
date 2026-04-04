@@ -3,8 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
 import useAuthStore from '../context/authStore';
-import { useSocket } from '../context/SocketContext';
-import { stockAPI, tradeAPI, walletAPI } from '../api';
+import { marketAPI, tradeAPI, walletAPI } from '../api';
 
 function StatCard({ label, value, sub, subUp, color = 'green' }) {
   const colors = { green: 'rgba(34,197,94,0.1)', red: 'rgba(239,68,68,0.1)', blue: 'rgba(59,130,246,0.1)', gold: 'rgba(245,158,11,0.1)' };
@@ -19,13 +18,27 @@ function StatCard({ label, value, sub, subUp, color = 'green' }) {
 
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const socket = useSocket();
-  const [stocks, setStocks] = useState([]);
-
-  const { data: stocksRes } = useQuery({
-    queryKey: ['stocks-dashboard'],
-    queryFn: () => stockAPI.getAll({ limit: 30 }),
-    refetchInterval: 10000,
+  
+  // Fetch market instruments from database - OPTIMIZED FOR LOGIN SPEED
+  // DISABLED: Market data now loads only when Trade page opens (lazy loading)
+  // This significantly improves login speed by reducing API calls
+  const { data: marketData } = useQuery({
+    queryKey: ['market-instruments-dashboard'],
+    queryFn: async () => {
+      try {
+        console.log('[Dashboard] Fetching market instruments (lazy loaded)');
+        // Fetch minimal number of stocks for dashboard performance
+        const response = await marketAPI.getAll({ status: 'active', limit: 20 }); // Reduced to 20
+        return Array.isArray(response?.data) ? response.data : [];
+      } catch (err) {
+        console.error('[Dashboard] Market API failed:', err.message);
+        return [];
+      }
+    },
+    refetchInterval: false, // Disable auto-refetch - user can manually refresh if needed
+    staleTime: 300000, // Cache for 5 minutes
+    cacheTime: 600000, // Keep in cache for 10 minutes
+    enabled: false, // DISABLED: Don't fetch on login. Load only when Trade page opens.
   });
 
   const { data: holdingsRes } = useQuery({
@@ -40,27 +53,26 @@ export default function Dashboard() {
     enabled: user?.kycStatus === 'approved',
   });
 
-  useEffect(() => {
-    if (stocksRes?.data?.data) setStocks(stocksRes.data.data);
-  }, [stocksRes]);
+  // Use ONLY database instruments - no static data
+  const stocks = marketData || [];
 
-  useEffect(() => {
-    if (!socket) return;
-    socket.on('price:update', (updates) => {
-      const map = {};
-      updates.forEach(u => { map[u.symbol] = u; });
-      setStocks(prev => prev.map(s => map[s.symbol] ? { ...s, ...map[s.symbol] } : s));
-    });
-    return () => socket.off('price:update');
-  }, [socket]);
+  // Sort gainers and losers from DB data only - filter by positive/negative change
+  const gainers = [...stocks]
+    .filter(s => s.changePercent > 0)
+    .sort((a, b) => b.changePercent - a.changePercent)
+    .slice(0, 5);
+  
+  const losers = [...stocks]
+    .filter(s => s.changePercent < 0)
+    .sort((a, b) => a.changePercent - b.changePercent)
+    .slice(0, 5);
 
-  const holdings = holdingsRes?.data?.data;
-  const summary = holdings?.summary;
+  // Safe data extraction from holdings
+  const holdings = holdingsRes?.data?.data || {};
+  const summary = holdings.summary || {};
   const recentOrders = ordersRes?.data?.data || [];
 
-  const gainers = [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5);
-  const losers = [...stocks].sort((a, b) => a.changePercent - b.changePercent).slice(0, 5);
-
+  // Safe P&L calculation with fallbacks
   const pnl = summary?.totalPnl || 0;
   const pnlPct = summary?.totalPnlPercent || 0;
 
@@ -95,7 +107,9 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-text-secondary uppercase tracking-wider mb-3 flex items-center gap-1.5"><TrendingUp size={12} className="text-brand-green" /> Top Gainers</div>
-              {gainers.map(s => (
+              {gainers.length === 0 ? (
+                <div className="text-xs text-text-secondary py-4">No gainers available</div>
+              ) : gainers.map(s => (
                 <Link to="/trading" key={s.symbol} className="flex items-center justify-between py-2 border-b border-border last:border-0 hover:bg-bg-tertiary rounded px-1 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{s.logo}</span>
@@ -110,7 +124,9 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="text-xs text-text-secondary uppercase tracking-wider mb-3 flex items-center gap-1.5"><TrendingDown size={12} className="text-accent-red" /> Top Losers</div>
-              {losers.map(s => (
+              {losers.length === 0 ? (
+                <div className="text-xs text-text-secondary py-4">No losers available</div>
+              ) : losers.map(s => (
                 <Link to="/trading" key={s.symbol} className="flex items-center justify-between py-2 border-b border-border last:border-0 hover:bg-bg-tertiary rounded px-1 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{s.logo}</span>

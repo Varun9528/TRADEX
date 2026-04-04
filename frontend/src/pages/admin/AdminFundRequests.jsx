@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminAPI } from '../../api';
 import toast from 'react-hot-toast';
-import { CheckCircle, XCircle, Clock, IndianRupee, User, Calendar } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, IndianRupee, User, Calendar, CreditCard, Building, Hash } from 'lucide-react';
 
 export default function AdminFundRequests() {
   const queryClient = useQueryClient();
@@ -25,6 +25,8 @@ export default function AdminFundRequests() {
       toast.success('Fund request approved successfully');
       queryClient.invalidateQueries(['admin-fund-requests']);
       queryClient.invalidateQueries(['admin-dashboard']);
+      queryClient.invalidateQueries(['wallet']);
+      queryClient.invalidateQueries(['notifications']);
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to approve request');
@@ -32,13 +34,14 @@ export default function AdminFundRequests() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async (id) => {
-      const { data } = await adminAPI.rejectFundRequest(id);
+    mutationFn: async ({ id, reason }) => {
+      const { data } = await adminAPI.rejectFundRequest(id, { reason });
       return data;
     },
     onSuccess: () => {
       toast.success('Fund request rejected');
       queryClient.invalidateQueries(['admin-fund-requests']);
+      queryClient.invalidateQueries(['notifications']);
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to reject request');
@@ -52,20 +55,96 @@ export default function AdminFundRequests() {
   };
 
   const handleReject = (id) => {
-    if (window.confirm('Are you sure you want to reject this fund request?')) {
-      rejectMutation.mutate(id);
+    const reason = prompt('Enter rejection reason (optional):');
+    if (reason !== null) {
+      rejectMutation.mutate({ id, reason });
     }
   };
 
   const getStatusBadge = (status) => {
-    switch(status) {
-      case 'approved':
+    switch(status?.toUpperCase()) {
+      case 'APPROVED':
         return <span className="flex items-center gap-1 text-xs font-medium text-green-400 bg-green-500/10 px-2 py-1 rounded-full"><CheckCircle size={12} /> Approved</span>;
-      case 'rejected':
+      case 'REJECTED':
         return <span className="flex items-center gap-1 text-xs font-medium text-red-400 bg-red-500/10 px-2 py-1 rounded-full"><XCircle size={12} /> Rejected</span>;
       default:
         return <span className="flex items-center gap-1 text-xs font-medium text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded-full"><Clock size={12} /> Pending</span>;
     }
+  };
+
+  const renderPaymentDetails = (req) => {
+    const details = [];
+    
+    if (req.paymentMethod) {
+      details.push(
+        <div key="method">
+          <div className="text-text-secondary text-xs mb-1 flex items-center gap-1">
+            <CreditCard size={12} /> Payment Method
+          </div>
+          <div className="text-text-primary font-medium">{req.paymentMethod}</div>
+        </div>
+      );
+    }
+
+    if (req.upiId) {
+      details.push(
+        <div key="upi">
+          <div className="text-text-secondary text-xs mb-1">UPI ID</div>
+          <div className="text-text-primary font-mono text-sm">{req.upiId}</div>
+        </div>
+      );
+    }
+
+    if (req.bankName) {
+      details.push(
+        <div key="bank">
+          <div className="text-text-secondary text-xs mb-1 flex items-center gap-1">
+            <Building size={12} /> Bank Name
+          </div>
+          <div className="text-text-primary font-medium">{req.bankName}</div>
+        </div>
+      );
+    }
+
+    if (req.accountNumber) {
+      details.push(
+        <div key="account">
+          <div className="text-text-secondary text-xs mb-1">Account Number</div>
+          <div className="text-text-primary font-mono text-sm">{req.accountNumber}</div>
+        </div>
+      );
+    }
+
+    if (req.ifscCode) {
+      details.push(
+        <div key="ifsc">
+          <div className="text-text-secondary text-xs mb-1">IFSC Code</div>
+          <div className="text-text-primary font-mono text-sm">{req.ifscCode}</div>
+        </div>
+      );
+    }
+
+    if (req.cardNumber) {
+      details.push(
+        <div key="card">
+          <div className="text-text-secondary text-xs mb-1">Card Number</div>
+          <div className="text-text-primary font-mono text-sm">{req.cardNumber}</div>
+        </div>
+      );
+    }
+
+    if (req.transactionReference) {
+      details.push(
+        <div key="ref">
+          <div className="text-text-secondary text-xs mb-1 flex items-center gap-1">
+            <Hash size={12} /> Transaction Reference
+          </div>
+          <div className="text-text-primary font-mono text-sm">{req.transactionReference}</div>
+        </div>
+      );
+    }
+
+    return details;
   };
 
   return (
@@ -118,40 +197,41 @@ export default function AdminFundRequests() {
           <div className="space-y-3">
             {fundRequests.map((req) => (
               <div key={req._id} className="bg-bg-card rounded-lg p-4 shadow-sm border border-border">
+                {/* User Info & Amount */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-start gap-3 flex-1">
                     <div className="w-10 h-10 rounded-full bg-brand-blue/20 flex items-center justify-center flex-shrink-0">
                       <User size={20} className="text-brand-blue" />
                     </div>
-                    <div className="flex-1">
-                      <div className="font-semibold text-text-primary">{req.user?.fullName || 'N/A'}</div>
-                      <div className="text-xs text-text-secondary">{req.user?.email}</div>
-                      <div className="text-xs text-text-secondary">{req.user?.clientId}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-text-primary truncate">{req.user?.fullName || 'N/A'}</div>
+                      <div className="text-xs text-text-secondary truncate">{req.user?.email}</div>
+                      {req.user?.clientId && (
+                        <div className="text-xs text-text-secondary">ID: {req.user.clientId}</div>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right ml-3">
                     <div className="text-xl font-bold text-brand-green">₹{req.amount.toLocaleString()}</div>
-                    <div className="text-xs text-text-secondary">{getStatusBadge(req.status)}</div>
+                    <div className="mt-1">{getStatusBadge(req.status)}</div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
-                  <div>
-                    <div className="text-text-secondary text-xs mb-1">Payment Method</div>
-                    <div className="text-text-primary font-medium">{req.paymentMethod}</div>
-                  </div>
-                  <div>
-                    <div className="text-text-secondary text-xs mb-1">Transaction Ref</div>
-                    <div className="text-text-primary font-mono text-xs">{req.transactionReference}</div>
+                {/* Payment Details Grid */}
+                <div className="bg-bg-tertiary rounded-lg p-3 mb-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {renderPaymentDetails(req)}
                   </div>
                 </div>
 
+                {/* Date */}
                 <div className="flex items-center gap-2 text-xs text-text-secondary mb-3">
                   <Calendar size={12} />
                   <span>{new Date(req.createdAt).toLocaleString()}</span>
                 </div>
 
-                {req.status === 'pending' && (
+                {/* Action Buttons */}
+                {req.status?.toUpperCase() === 'PENDING' && (
                   <div className="flex gap-2 pt-3 border-t border-border">
                     <button
                       onClick={() => handleApprove(req._id)}
@@ -172,15 +252,18 @@ export default function AdminFundRequests() {
                   </div>
                 )}
 
-                {req.status === 'approved' && req.approvedBy && (
+                {/* Approval Info */}
+                {req.status?.toUpperCase() === 'APPROVED' && req.approvedBy && (
                   <div className="text-xs text-text-secondary pt-3 border-t border-border">
                     Approved by: {req.approvedBy?.fullName || 'Admin'} • {new Date(req.approvedAt).toLocaleString()}
                   </div>
                 )}
 
-                {req.status === 'rejected' && req.rejectionReason && (
+                {/* Rejection Reason */}
+                {req.status?.toUpperCase() === 'REJECTED' && req.adminNotes && (
                   <div className="text-xs text-accent-red pt-3 border-t border-border">
-                    Reason: {req.rejectionReason}
+                    <div className="font-medium mb-1">Rejection Reason:</div>
+                    {req.adminNotes}
                   </div>
                 )}
               </div>

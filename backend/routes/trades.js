@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect: auth } = require('../middleware/auth');
 const { Order, Holding } = require('../models/Order');
+const Position = require('../models/Position');
 const Stock = require('../models/Stock');
 const User = require('../models/User');
 const { Transaction } = require('../models/Transaction');
@@ -124,6 +125,32 @@ router.post('/order', auth, async (req, res) => {
         });
         await transaction.save();
         
+        // Create Position for short sell
+        const position = new Position({
+          user: user._id,
+          stock: stock._id,
+          symbol: cleanSymbol,
+          productType,
+          transactionType: 'SELL',
+          quantity,
+          remainingQuantity: quantity,
+          buyQuantity: 0,
+          sellQuantity: quantity,
+          netQuantity: -quantity, // Negative for short position
+          averagePrice: executedPrice,
+          currentPrice: executedPrice,
+          investmentValue: marginRequired,
+          currentValue: marginRequired,
+          unrealizedPnl: 0,
+          realizedPnl: 0,
+          totalPnl: 0,
+          pnlPercentage: 0,
+          leverageUsed: 1,
+          isClosed: false
+        });
+        await position.save();
+        console.log(`[Position] Created SHORT position: ${cleanSymbol} - Qty: -${quantity}`);
+        
         return res.status(200).json({
           success: true,
           message: 'Short sell order executed successfully. Position will be auto-squared off.',
@@ -213,6 +240,35 @@ router.post('/order', auth, async (req, res) => {
         reference: `SELL-${symbol}-${Date.now()}`
       });
       await transaction.save();
+
+      // Update Position for SELL order
+      let position = await Position.findOne({ 
+        user: user._id, 
+        symbol: cleanSymbol,
+        productType,
+        isClosed: false
+      });
+
+      if (position) {
+        // Update existing position
+        position.sellQuantity += quantity;
+        position.netQuantity = position.buyQuantity - position.sellQuantity;
+        position.remainingQuantity = Math.max(0, position.quantity - quantity);
+        position.currentPrice = executedPrice;
+        position.realizedPnl += pnl;
+        position.totalPnl = position.realizedPnl + position.unrealizedPnl;
+        
+        // If all shares sold, close the position
+        if (position.netQuantity <= 0 || position.remainingQuantity <= 0) {
+          position.isClosed = true;
+          position.closedAt = new Date();
+          console.log(`[Position] Closed position: ${cleanSymbol}`);
+        } else {
+          console.log(`[Position] Updated SELL: ${cleanSymbol} - Remaining: ${position.remainingQuantity}`);
+        }
+        
+        await position.save();
+      }
 
       return res.status(200).json({
         success: true,
@@ -307,6 +363,61 @@ router.post('/order', auth, async (req, res) => {
       reference: `BUY-${symbol}-${Date.now()}`
     });
     await transaction.save();
+
+    // Create or update Position for Trade Monitor visibility
+    let position = await Position.findOne({ 
+      user: user._id, 
+      symbol: cleanSymbol,
+      productType,
+      isClosed: false
+    });
+
+    if (!position) {
+      // Create new position
+      position = new Position({
+        user: user._id,
+        stock: stock._id,
+        symbol: cleanSymbol,
+        productType,
+        transactionType: 'BUY',
+        quantity,
+        remainingQuantity: quantity,
+        buyQuantity: quantity,
+        sellQuantity: 0,
+        netQuantity: quantity,
+        averagePrice: executedPrice,
+        currentPrice: executedPrice,
+        investmentValue: orderValue,
+        currentValue: orderValue,
+        unrealizedPnl: 0,
+        realizedPnl: 0,
+        totalPnl: 0,
+        pnlPercentage: 0,
+        leverageUsed: leverage,
+        isClosed: false
+      });
+      await position.save();
+      console.log(`[Position] Created new position: ${cleanSymbol} - Qty: ${quantity}`);
+    } else {
+      // Update existing position (averaging)
+      const oldCost = position.averagePrice * position.quantity;
+      const newCost = executedPrice * quantity;
+      const totalQty = position.quantity + quantity;
+      const avgPrice = (oldCost + newCost) / totalQty;
+
+      position.quantity = totalQty;
+      position.remainingQuantity = totalQty;
+      position.buyQuantity += quantity;
+      position.netQuantity = position.buyQuantity - position.sellQuantity;
+      position.averagePrice = Number(avgPrice.toFixed(2));
+      position.currentPrice = executedPrice;
+      position.investmentValue += orderValue;
+      position.currentValue = position.currentPrice * totalQty;
+      position.leverageUsed = leverage;
+
+      await position.save();
+      console.log(`[Position] Updated position: ${cleanSymbol} - New Qty: ${totalQty}`);
+    }
 
     res.status(201).json({
       success: true,

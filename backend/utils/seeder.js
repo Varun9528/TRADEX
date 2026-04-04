@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Stock = require('../models/Stock');
 const KYC = require('../models/KYC');
 const { Watchlist } = require('../models/Watchlist');
+const MarketInstrument = require('../models/MarketInstrument');
 const logger = require('./logger');
 
 const STOCKS_DATA = [
@@ -41,6 +42,14 @@ const STOCKS_DATA = [
   { symbol: 'AXISBANK', name: 'Axis Bank Ltd', sector: 'Banking', logo: '🏛️', currentPrice: 1189, previousClose: 1173, marketCap: 366000, pe: 14.8, pb: 2.1, eps: 80.3, weekHigh52: 1340, weekLow52: 995, volatilityFactor: 0.9 },
 ];
 
+const FOREX_DATA = [
+  { symbol: 'USDINR', name: 'US Dollar / Indian Rupee', type: 'FOREX', exchange: 'FOREX', price: 83.45, open: 83.20, high: 83.60, low: 83.10, close: 83.30, volume: 1000000, description: 'USD to INR exchange rate' },
+  { symbol: 'EURUSD', name: 'Euro / US Dollar', type: 'FOREX', exchange: 'FOREX', price: 1.0845, open: 1.0820, high: 1.0870, low: 1.0810, close: 1.0830, volume: 2000000, description: 'EUR to USD exchange rate' },
+  { symbol: 'GBPUSD', name: 'British Pound / US Dollar', type: 'FOREX', exchange: 'FOREX', price: 1.2634, open: 1.2610, high: 1.2660, low: 1.2600, close: 1.2620, volume: 1500000, description: 'GBP to USD exchange rate' },
+  { symbol: 'USDJPY', name: 'US Dollar / Japanese Yen', type: 'FOREX', exchange: 'FOREX', price: 151.45, open: 151.20, high: 151.80, low: 151.00, close: 151.30, volume: 1800000, description: 'USD to JPY exchange rate' },
+  { symbol: 'XAUUSD', name: 'Gold / US Dollar', type: 'FOREX', exchange: 'FOREX', price: 2034.50, open: 2028.00, high: 2040.00, low: 2025.00, close: 2030.00, volume: 500000, description: 'Gold spot price in USD' },
+];
+
 async function seed() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
@@ -67,6 +76,47 @@ async function seed() {
     }));
     await Stock.insertMany(stockDocs);
     console.log(`✅ Seeded ${stockDocs.length} stocks`);
+
+    // ── MARKET INSTRUMENTS (STOCKS + FOREX) ──
+    console.log('🌱 Seeding market instruments...');
+    await MarketInstrument.deleteMany({});
+    
+    // Seed stock instruments from STOCKS_DATA
+    const stockInstruments = STOCKS_DATA.slice(0, 10).map(s => ({
+      name: s.name,
+      symbol: s.symbol,
+      type: 'STOCK',
+      exchange: 'NSE',
+      price: s.currentPrice,
+      open: s.currentPrice,
+      high: s.currentPrice * 1.02,
+      low: s.currentPrice * 0.98,
+      close: s.previousClose,
+      volume: Math.floor(Math.random() * 5000000 + 500000),
+      sector: s.sector,
+      description: `${s.name} - ${s.sector}`,
+      isActive: true,
+    }));
+    
+    // Seed forex instruments
+    const forexInstruments = FOREX_DATA.map(f => ({
+      name: f.name,
+      symbol: f.symbol,
+      type: 'FOREX',
+      exchange: 'FOREX',
+      price: f.price,
+      open: f.open,
+      high: f.high,
+      low: f.low,
+      close: f.close,
+      volume: f.volume,
+      description: f.description,
+      isActive: true,
+    }));
+    
+    const allInstruments = [...stockInstruments, ...forexInstruments];
+    await MarketInstrument.insertMany(allInstruments);
+    console.log(`✅ Seeded ${allInstruments.length} market instruments (${stockInstruments.length} stocks + ${forexInstruments.length} forex)`);
 
     // ── ADMIN USER ──
     console.log('🌱 Seeding admin user...');
@@ -114,7 +164,7 @@ async function seed() {
     await Watchlist.create({
       user: user._id,
       stocks: stocks.map(s => ({ symbol: s.symbol, stock: s._id })),
-    });
+    }).catch(err => console.log('Watchlist creation skipped:', err.message));
     
     console.log(`✅ Demo user created: user@tradex.in / Demo@123456`);
 

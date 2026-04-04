@@ -1,11 +1,10 @@
 // ═══════════════════════════════════════
-// STOCKS ROUTES
+// STOCKS ROUTES - Database Only (No External APIs)
 // ═══════════════════════════════════════
 const express = require('express');
 const stockRouter = express.Router();
 const Stock = require('../models/Stock');
 const { protect } = require('../middleware/auth');
-const marketService = require('../utils/marketService');
 
 stockRouter.use(protect);
 
@@ -47,40 +46,6 @@ stockRouter.get('/:symbol/history', async (req, res) => {
   }
 });
 
-// NEW: GET /api/stocks/live-price/:symbol - Real-time price from TwelveData
-stockRouter.get('/live-price/:symbol', async (req, res) => {
-  try {
-    const symbol = req.params.symbol.toUpperCase();
-    const priceData = await marketService.getRealtimePrice(symbol);
-    res.json({ success: true, data: priceData });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// NEW: GET /api/stocks/candles/:symbol - Historical candlestick data
-stockRouter.get('/candles/:symbol', async (req, res) => {
-  try {
-    const { interval = '1min', outputsize = 50 } = req.query;
-    const symbol = req.params.symbol.toUpperCase();
-    const candles = await marketService.getCandles(symbol, interval, outputsize);
-    res.json({ success: true, data: candles });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// NEW: GET /api/stocks/quote/:symbol - Detailed quote data
-stockRouter.get('/quote/:symbol', async (req, res) => {
-  try {
-    const symbol = req.params.symbol.toUpperCase();
-    const quoteData = await marketService.getQuote(symbol);
-    res.json({ success: true, data: quoteData });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
 // GET /api/stocks/indices/live — Market indices
 stockRouter.get('/meta/indices', async (req, res) => {
   res.json({
@@ -91,6 +56,38 @@ stockRouter.get('/meta/indices', async (req, res) => {
       niftyIT: { value: 38421 + (Math.random() - 0.5) * 150, change: 1.24 },
     }
   });
+});
+
+// GET /api/stocks/stats - Market statistics for admin
+stockRouter.get('/stats', async (req, res) => {
+  try {
+    const [
+      totalInstruments,
+      totalStocks,
+      totalForex,
+      activeInstruments,
+      inactiveInstruments,
+    ] = await Promise.all([
+      Stock.countDocuments(),
+      Stock.countDocuments({ type: 'STOCK' }),
+      Stock.countDocuments({ type: 'FOREX' }),
+      Stock.countDocuments({ isActive: true }),
+      Stock.countDocuments({ isActive: false }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalInstruments,
+        totalStocks,
+        totalForex,
+        activeInstruments,
+        inactiveInstruments,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = stockRouter;

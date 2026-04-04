@@ -18,7 +18,7 @@ const marketInstrumentSchema = new mongoose.Schema({
   // Instrument Type
   type: {
     type: String,
-    enum: ['STOCK', 'FOREX', 'CRYPTO', 'COMMODITY', 'INDEX'],
+    enum: ['STOCK', 'FOREX', 'CRYPTO', 'COMMODITY', 'INDEX', 'OPTION'],
     required: true,
     default: 'STOCK'
   },
@@ -26,7 +26,7 @@ const marketInstrumentSchema = new mongoose.Schema({
   // Exchange
   exchange: {
     type: String,
-    enum: ['NSE', 'BSE', 'FOREX', 'CRYPTO', 'MCX'],
+    enum: ['NSE', 'BSE', 'FOREX', 'CRYPTO', 'MCX', 'NFO', 'CDS', 'MCX-SX'],
     required: true,
     default: 'NSE'
   },
@@ -66,6 +66,29 @@ const marketInstrumentSchema = new mongoose.Schema({
   
   // Volume
   volume: {
+    type: Number,
+    default: 0
+  },
+  
+  // Options-specific fields
+  strikePrice: {
+    type: Number,
+    default: null
+  },
+  expiryDate: {
+    type: Date,
+    default: null
+  },
+  optionType: {
+    type: String,
+    enum: ['CE', 'PE', null],
+    default: null
+  },
+  lotSize: {
+    type: Number,
+    default: null
+  },
+  openInterest: {
     type: Number,
     default: 0
   },

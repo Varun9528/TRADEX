@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminAPI, stockAPI } from '../../api';
+import { adminAPI } from '../../api';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 

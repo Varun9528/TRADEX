@@ -5,26 +5,11 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../context/authStore';
 import { Info, Wallet } from 'lucide-react';
 
-export default function OrderPanel({ stock }) {
+export default function OrderPanel({ stock, tradingEnabled = true }) {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   
-  const [orderType, setOrderType] = useState('BUY');
-  const [orderMode, setOrderMode] = useState('MARKET');
-  const [productType, setProductType] = useState('MIS');
-  const [qty, setQty] = useState(1);
-  const [limitPrice, setLimitPrice] = useState('');
-
-  // Safety check - prevent crashes
-  if (!stock) {
-    return (
-      <div className="p-3 text-center text-xs text-text-secondary">
-        Select a stock to trade
-      </div>
-    );
-  }
-
-  // Fetch wallet balance
+  // ALWAYS run hooks first - no conditions
   const { data: walletData, refetch: refetchWallet } = useQuery({
     queryKey: ['wallet-balance'],
     queryFn: async () => {
@@ -36,7 +21,11 @@ export default function OrderPanel({ stock }) {
         return null;
       }
     },
-    refetchInterval: 5000,
+    staleTime: 30000, // Cache for 30 seconds
+    cacheTime: 60000, // Keep in cache for 1 minute
+    refetchOnWindowFocus: false,
+    refetchInterval: false, // Disable auto-refetch
+    retry: 1,
   });
 
   const placeMutation = useMutation({
@@ -46,7 +35,7 @@ export default function OrderPanel({ stock }) {
     },
     onSuccess: (res) => {
       console.log('[OrderPanel] Order success:', res);
-      toast.success(`${orderType} order placed for ${stock.symbol}`);
+      toast.success(`${orderType} order placed for ${stock?.symbol || 'instrument'}`);
       setQty(1);
       setLimitPrice('');
       queryClient.invalidateQueries(['holdings']);
@@ -62,9 +51,33 @@ export default function OrderPanel({ stock }) {
       toast.error(err.response?.data?.message || 'Order placement failed');
     },
   });
+  
+  // State after hooks
+  const [orderType, setOrderType] = useState('BUY');
+  const [orderMode, setOrderMode] = useState('MARKET');
+  const [productType, setProductType] = useState('MIS');
+  const [qty, setQty] = useState(1);
+  const [limitPrice, setLimitPrice] = useState('');
+
+  // Early return AFTER all hooks
+  if (!stock || !stock.symbol) {
+    return (
+      <div className="p-3 text-center text-xs text-text-secondary">
+        <div className="text-4xl mb-3">📊</div>
+        <p className="mb-2">No instrument selected</p>
+        <p className="text-xs text-text-muted">Select an instrument from watchlist to trade</p>
+      </div>
+    );
+  }
 
   const execPrice = orderMode === 'MARKET' ? stock.currentPrice : parseFloat(limitPrice) || stock.currentPrice;
-  const estAmount = (execPrice || 0) * qty;
+  
+  // Calculate effective quantity based on instrument type
+  // For OPTIONS: quantity is in lots, so multiply by lotSize
+  const lotSize = stock.lotSize || 1; // Default to 1 for stocks
+  const effectiveQty = stock.type === 'OPTION' ? qty * lotSize : qty;
+  
+  const estAmount = (execPrice || 0) * effectiveQty;
   const canTrade = user?.kycStatus === 'approved' && user?.tradingEnabled;
 
   const getRequiredMargin = () => {
@@ -81,13 +94,17 @@ export default function OrderPanel({ stock }) {
     }
     
     console.log('[OrderPanel] Handle place order clicked');
+    console.log('[OrderPanel] Stock type:', stock.type);
+    console.log('[OrderPanel] Lot size:', lotSize);
+    console.log('[OrderPanel] Input qty (lots):', qty);
+    console.log('[OrderPanel] Effective qty:', effectiveQty);
     
     placeMutation.mutate({
       symbol: stock.symbol,
       transactionType: orderType,
       orderType: orderMode,
       productType: productType,
-      quantity: qty,
+      quantity: effectiveQty, // Send effective quantity (lots * lotSize for options)
       price: orderMode === 'LIMIT' ? parseFloat(limitPrice) : undefined,
     });
   };
@@ -134,12 +151,16 @@ export default function OrderPanel({ stock }) {
             console.log('[OrderPanel] BUY clicked');
             setOrderType('BUY');
           }}
+          disabled={!tradingEnabled}
           className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all touch-manipulation ${
-            orderType === 'BUY'
+            !tradingEnabled
+              ? 'bg-gray-500/20 text-gray-400 border-2 border-gray-500 cursor-not-allowed'
+              : orderType === 'BUY'
               ? 'bg-brand-green/20 text-brand-green border-2 border-brand-green shadow-lg shadow-brand-green/20'
               : 'bg-bg-tertiary text-text-secondary border border-border hover:bg-bg-secondary'
           }`}
           style={{ minHeight: '44px' }}
+          title={!tradingEnabled ? 'Trading disabled by admin' : ''}
         >
           BUY
         </button>
@@ -148,12 +169,16 @@ export default function OrderPanel({ stock }) {
             console.log('[OrderPanel] SELL clicked');
             setOrderType('SELL');
           }}
+          disabled={!tradingEnabled}
           className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all touch-manipulation ${
-            orderType === 'SELL'
+            !tradingEnabled
+              ? 'bg-gray-500/20 text-gray-400 border-2 border-gray-500 cursor-not-allowed'
+              : orderType === 'SELL'
               ? 'bg-accent-red/20 text-accent-red border-2 border-accent-red shadow-lg shadow-accent-red/20'
               : 'bg-bg-tertiary text-text-secondary border border-border hover:bg-bg-secondary'
           }`}
           style={{ minHeight: '44px' }}
+          title={!tradingEnabled ? 'Trading disabled by admin' : ''}
         >
           SELL
         </button>
@@ -220,7 +245,8 @@ export default function OrderPanel({ stock }) {
       {/* Quantity Input - Compact */}
       <div className="mx-3 mb-2">
         <label className="block text-[10px] font-medium text-text-secondary mb-1">
-          Quantity
+          {stock.type === 'OPTION' ? 'Lots' : 'Quantity'}
+          {stock.type === 'OPTION' && <span className="text-brand-blue ml-1">(1 Lot = {lotSize} qty)</span>}
         </label>
         <input
           type="number"
@@ -229,6 +255,11 @@ export default function OrderPanel({ stock }) {
           className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-strong rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent text-text-primary outline-none text-xs"
           min="1"
         />
+        {stock.type === 'OPTION' && (
+          <div className="text-[9px] text-text-muted mt-1">
+            Total quantity: {effectiveQty} units
+          </div>
+        )}
       </div>
 
       {/* Limit Price Input - Compact */}
@@ -289,18 +320,23 @@ export default function OrderPanel({ stock }) {
           console.log('[OrderPanel] Place Order button clicked');
           handlePlaceOrder();
         }}
-        disabled={placeMutation.isPending || !canTrade}
+        disabled={placeMutation.isPending || !canTrade || !tradingEnabled}
         className={`w-full mx-3 py-2 rounded-lg font-bold text-white text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-          orderType === 'BUY'
+          !tradingEnabled
+            ? 'bg-gray-500'
+            : orderType === 'BUY'
             ? 'bg-brand-green hover:bg-brand-green/90 active:scale-98'
             : 'bg-accent-red hover:bg-accent-red/90 active:scale-98'
         }`}
+        title={!tradingEnabled ? 'Trading disabled by admin' : ''}
       >
         {placeMutation.isPending ? (
           <span className="flex items-center justify-center gap-2">
             <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             Placing...
           </span>
+        ) : !tradingEnabled ? (
+          'Trading Disabled'
         ) : (
           `Place ${orderType} Order`
         )}

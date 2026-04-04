@@ -27,6 +27,7 @@ const positionRoutes = require('./routes/positions');
 const adminRoutes = require('./routes/admin');
 const adminWalletRoutes = require('./routes/adminWallet');
 const adminUsersRoutes = require('./routes/adminUsers');
+const adminTradeRoutes = require('./routes/adminTrade');
 const notificationRoutes = require('./routes/notifications');
 const marketRoutes = require('./routes/market');
 
@@ -135,6 +136,7 @@ app.use('/api/positions', positionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminWalletRoutes);
 app.use('/api/admin', adminUsersRoutes);
+app.use('/api/admin', adminTradeRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/market', marketRoutes);
 
@@ -197,6 +199,18 @@ const PORT = process.env.PORT || 5000;
 async function start() {
   await connectDB();
   
+  // Check market instruments count (NO AUTO-SEEDING - Admin must add instruments)
+  try {
+    const MarketInstrument = require('./models/MarketInstrument');
+    const count = await MarketInstrument.countDocuments();
+    logger.info(`[Server] Market instruments in database: ${count}`);
+    if (count === 0) {
+      logger.warn('[Server] ⚠️  No instruments found. Admin must add instruments via admin panel.');
+    }
+  } catch (err) {
+    logger.error('[Server] Error checking instruments:', err.message);
+  }
+  
   // Initialize price engine only once
   if (!global.priceEngineInitialized) {
     initPriceEngine(io);
@@ -209,22 +223,21 @@ async function start() {
   chartSimulation.startSimulation();
   logger.info('[Server] Chart simulation started - Market will move automatically');
   
-  // Try to start server, if port in use try next one
-  const startServer = (portToTry) => {
-    server.listen(portToTry, () => {
-      logger.info(`TradeX API running on port ${portToTry} [${process.env.NODE_ENV}]`);
-    }).on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        logger.warn(`Port ${portToTry} is in use, trying ${portToTry + 1}`);
-        startServer(portToTry + 1);
-      } else {
-        logger.error('Server error:', err);
-        process.exit(1);
-      }
-    });
-  };
-  
-  startServer(PORT);
+  // Start server on exact port 5000 - no fallback logic
+  server.listen(PORT, () => {
+    logger.info(`TradeX API running on port ${PORT} [${process.env.NODE_ENV}]`);
+    console.log(`]: TradeX API running on port ${PORT} [${process.env.NODE_ENV}]`);
+  }).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.error(`Port ${PORT} is in use. Please stop other processes using this port.`);
+      console.error(`ERROR: Port ${PORT} is already in use!`);
+      console.error(`Run: taskkill /F /IM node.exe`);
+      process.exit(1);
+    } else {
+      logger.error('Server error:', err);
+      process.exit(1);
+    }
+  });
 }
 
 start().catch((err) => {

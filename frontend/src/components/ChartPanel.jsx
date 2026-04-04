@@ -114,6 +114,18 @@ export default function ChartPanel({ symbol, currentPrice }) {
   const [chartType, setChartType] = useState('candlestick')
   const [error, setError] = useState(null)
   
+  // Defensive check - prevent crashes if no symbol
+  if (!symbol) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-bg-primary">
+        <div className="text-center text-text-secondary">
+          <div className="text-4xl mb-3">📈</div>
+          <p className="text-sm">Select an instrument to view chart</p>
+        </div>
+      </div>
+    )
+  }
+  
   // Store tick data persistently
   const tickDataRef = useRef([])
   const basePriceRef = useRef(null)
