@@ -298,10 +298,9 @@ export default function AppLayout() {
 
         {/* Page content - Scrollable area */}
         <main 
-          className="flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto pb-20 lg:pb-4" 
+          className="flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto min-h-screen pb-24 lg:pb-4" 
           style={{ 
             pointerEvents: 'auto',
-            minHeight: 'calc(100vh - 60px)',
           }}
         >
           <Outlet />

@@ -61,7 +61,7 @@ export default function WatchlistPage() {
   });
 
   return (
-    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4">
+    <div className="min-h-screen bg-bg-primary pb-24 md:pb-4">
       {/* Header - Zerodha Mobile Style */}
       <div className="bg-bg-secondary border-b border-border sticky top-0 z-10 safe-area-top">
         {/* Top Bar */}

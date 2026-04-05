@@ -148,7 +148,7 @@ export default function AdminFundRequests() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4">
+    <div className="min-h-screen bg-bg-primary pb-24 md:pb-4">
       {/* Header */}
       <div className="bg-bg-secondary border-b border-border px-3 md:px-4 py-3 sticky top-0 z-10 safe-area-top">
         <h1 className="text-lg md:text-xl font-bold text-text-primary">Fund Requests</h1>

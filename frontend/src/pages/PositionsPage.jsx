@@ -68,7 +68,7 @@ export default function PositionsPage() {
   const totalPnLPercent = totalInvestment > 0 ? (totalPnL / totalInvestment) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4">
+    <div className="min-h-screen bg-bg-primary pb-24 md:pb-4">
       {/* Header - Compact */}
       <div className="bg-bg-secondary border-b border-border px-3 py-2.5 sticky top-0 z-10 safe-area-top">
         <h1 className="text-sm font-bold text-text-primary">Positions</h1>

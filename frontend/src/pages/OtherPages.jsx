@@ -50,7 +50,7 @@ export function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4 space-y-4 md:space-y-5 animate-slide-up">
+    <div className="min-h-screen bg-bg-primary pb-24 md:pb-4 space-y-4 md:space-y-5 animate-slide-up">
       {/* Summary Cards - Zerodha Style */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 px-2 md:px-0">
         {[
@@ -184,7 +184,7 @@ export function OrdersPage() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-bg-primary pb-20 md:pb-4 animate-slide-up">
+      <div className="min-h-screen bg-bg-primary pb-24 md:pb-4 animate-slide-up">
         <div className="flex items-center justify-center h-64">
           <div className="w-8 h-8 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
         </div>
@@ -193,7 +193,7 @@ export function OrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary pb-20 md:pb-4 animate-slide-up">
+    <div className="min-h-screen bg-bg-primary pb-24 md:pb-4 animate-slide-up">
       {/* Header - Zerodha Style */}
       <div className="bg-bg-card border-b border-border px-3 md:px-4 py-3 sticky top-0 z-10 safe-area-top">
         <h1 className="text-lg md:text-xl font-bold text-text-primary mb-3">Orders</h1>
