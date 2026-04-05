@@ -90,7 +90,7 @@ export default function Dashboard() {
       )}
 
       {/* Stat Cards - Responsive Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+      <div className="dashboard-grid w-full">
         <StatCard label="Invested" value={`₹${(summary?.totalInvested || user?.walletBalance || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub={`${holdings?.holdings?.length || 0} stocks`} color="blue" />
         <StatCard label="Current Value" value={`₹${(summary?.totalCurrentValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub={pnl !== 0 ? `${pnl >= 0 ? '▲' : '▼'} ₹${Math.abs(pnl).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : 'No positions'} subUp={pnl > 0 ? true : pnl < 0 ? false : undefined} color={pnl >= 0 ? 'green' : 'red'} />
         <StatCard label="Wallet Balance" value={`₹${(user?.walletBalance || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub="Available to trade" color="blue" />

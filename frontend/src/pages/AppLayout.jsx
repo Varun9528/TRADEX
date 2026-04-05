@@ -46,6 +46,54 @@ const ADMIN_NAV = [
   // Removed: Wallet Control - duplicate of dedicated fund/withdraw pages
 ];
 
+// Profile Dropdown Component with Logout
+function ProfileDropdown({ initials, logout }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-blue to-blue-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 hover:opacity-90 transition-opacity"
+      >
+        {initials}
+      </button>
+      
+      {isOpen && (
+        <>
+          {/* Backdrop to close dropdown */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Dropdown menu */}
+          <div className="absolute right-0 mt-2 w-40 bg-bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+            <NavLink 
+              to="/profile" 
+              className="flex items-center gap-2 px-4 py-3 text-sm text-text-primary hover:bg-bg-tertiary transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              <User size={16} />
+              <span>Profile</span>
+            </NavLink>
+            <button 
+              onClick={() => {
+                logout();
+                setIsOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-accent-red hover:bg-bg-tertiary transition-colors border-t border-border"
+            >
+              <LogOut size={16} />
+              <span>Logout</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Ticker component - Zerodha style
 function Ticker({ stocks }) {
   if (!stocks?.length) return null;
@@ -244,7 +292,7 @@ export default function AppLayout() {
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} style={{ pointerEvents: 'auto' }} />
-          <aside className="relative flex flex-col w-[240px] bg-bg-secondary border-r border-border h-full z-10 flex-shrink-0">
+          <aside className="relative flex flex-col w-[240px] bg-bg-secondary border-r border-border h-full overflow-y-auto pb-20 z-10 flex-shrink-0">
             <button className="absolute top-4 right-4 text-text-secondary" onClick={() => setSidebarOpen(false)}>
               <X size={18} />
             </button>
@@ -254,7 +302,7 @@ export default function AppLayout() {
       )}
 
       {/* Main content wrapper - Flexible width with scrolling */}
-      <div className="flex-1 lg:ml-[240px] flex flex-col min-h-screen w-full min-w-0" style={{ pointerEvents: 'auto' }}>
+      <div className="flex-1 lg:ml-[240px] flex flex-col min-h-screen w-full max-w-full" style={{ pointerEvents: 'auto' }}>
         {/* Ticker - Full width */}
         <Ticker stocks={tickerStocks} />
 
@@ -290,14 +338,13 @@ export default function AppLayout() {
             {/* Notification Bell */}
             <NotificationBell />
 
-            <NavLink to="/profile" className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-blue to-blue-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-              {initials}
-            </NavLink>
+            {/* Profile Dropdown with Logout */}
+            <ProfileDropdown initials={initials} logout={handleLogout} />
           </div>
         </header>
 
         {/* Page content - Scrollable area */}
-        <main className="flex-1 min-h-screen pb-24 lg:pb-4 w-full max-w-full overflow-x-hidden overflow-y-auto" style={{ pointerEvents: 'auto' }}>
+        <main className="flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto pb-24 lg:pb-4 px-4" style={{ pointerEvents: 'auto' }}>
           <Outlet />
         </main>
 

@@ -45,7 +45,29 @@
     min-width: 0;
   }
   
-  /* CRITICAL: Prevent flex containers from blocking scroll on mobile */
+  /* Sidebar mobile scroll and spacing */
+  aside.overflow-y-auto {
+    padding-bottom: 80px; /* Space for mobile nav when sidebar is open */
+  }
+  
+  /* Dashboard responsive grid */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  @media (min-width: 768px) {
+    .dashboard-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  @media (min-width: 1200px) {
+    .dashboard-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
   .flex.flex-col {
     min-height: 0; /* Allow flex children to shrink */
   }
