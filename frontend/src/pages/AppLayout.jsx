@@ -234,7 +234,7 @@ export default function AppLayout() {
   );
 
   return (
-    <div className="flex min-h-screen bg-bg-primary w-full" style={{ minWidth: 0 }}>
+    <div className="min-h-screen flex flex-col bg-bg-primary w-full" style={{ minWidth: 0 }}>
       {/* Desktop sidebar - Fixed width */}
       <aside className="hidden lg:flex flex-col w-[240px] bg-bg-secondary border-r border-border fixed top-0 left-0 bottom-0 z-40 flex-shrink-0">
         <SidebarContent />
@@ -297,12 +297,7 @@ export default function AppLayout() {
         </header>
 
         {/* Page content - Scrollable area */}
-        <main 
-          className="flex-1 w-full max-w-full overflow-x-hidden overflow-y-auto min-h-screen pb-24 lg:pb-4" 
-          style={{ 
-            pointerEvents: 'auto',
-          }}
-        >
+        <main className="flex-1 min-h-screen pb-24 lg:pb-4 w-full max-w-full overflow-x-hidden overflow-y-auto" style={{ pointerEvents: 'auto' }}>
           <Outlet />
         </main>
 
