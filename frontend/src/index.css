@@ -15,7 +15,7 @@
     overflow-x: hidden;
     overflow-y: auto; /* CRITICAL: Allow vertical scrolling */
     width: 100%;
-    height: auto; /* FIXED: Changed from 100% to allow growth */
+    height: 100%; /* FIXED: Keep 100% for proper viewport */
     scroll-behavior: smooth;
   }
   
@@ -59,8 +59,9 @@
   }
   
   /* Page wrapper with bottom padding for mobile nav */
-  .page-wrapper {
-    padding-bottom: 90px; /* Space for bottom navigation - increased */
+  .page-wrapper,
+  .main-content {
+    padding-bottom: 80px; /* Space for bottom navigation */
     min-height: 100vh;
     overflow-y: auto; /* ONLY main container scrolls */
     overflow-x: hidden;
@@ -321,7 +322,7 @@ input, select, textarea {
 /* Chart container responsive sizing */
 .chart-container {
   width: 100%;
-  height: 300px; /* Mobile height */
+  height: 280px; /* Mobile height - reduced for better UX */
 }
 
 @media (min-width: 768px) {
@@ -333,7 +334,7 @@ input, select, textarea {
 /* Trading page sections - NO overflow, single scroll */
 .chart-section {
   width: 100%;
-  height: 320px; /* Fixed chart height on mobile */
+  height: 280px; /* Fixed chart height on mobile - matches chart-container */
 }
 
 .trade-section {

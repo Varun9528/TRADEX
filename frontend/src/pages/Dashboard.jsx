@@ -77,7 +77,7 @@ export default function Dashboard() {
   const pnlPct = summary?.totalPnlPercent || 0;
 
   return (
-    <div className="w-full p-4 space-y-5 animate-slide-up">
+    <div className="w-full min-h-screen p-4 pb-20 md:pb-4 space-y-5 animate-slide-up">
       {/* KYC Banner */}
       {user?.kycStatus !== 'approved' && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 flex items-center justify-between w-full">
