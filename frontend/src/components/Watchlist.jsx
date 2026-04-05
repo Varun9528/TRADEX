@@ -150,7 +150,7 @@ export default function Watchlist({ onStockSelect, selectedSymbol, stocks, marke
           </div>
         </div>
       ) : (
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 market-list">
           <table className="w-full text-xs">
             <thead className="bg-bg-tertiary sticky top-0">
               <tr>

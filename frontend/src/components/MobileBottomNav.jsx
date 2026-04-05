@@ -15,7 +15,7 @@ export default function MobileBottomNav() {
   const isAdmin = user?.role === 'admin';
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-bg-secondary border-t border-border safe-area-bottom z-40">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-bg-secondary border-t border-border safe-area-bottom z-40 bottom-nav">
       <div className="flex justify-around items-center h-14">
         {/* Admin Dashboard Button - Only for Admins */}
         {isAdmin && (

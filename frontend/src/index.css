@@ -15,7 +15,7 @@
     overflow-x: hidden;
     overflow-y: auto; /* CRITICAL: Allow vertical scrolling */
     width: 100%;
-    height: 100%;
+    height: auto; /* FIXED: Changed from 100% to allow growth */
     scroll-behavior: smooth;
   }
   
@@ -26,11 +26,11 @@
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: contain;
-    overflow-x: hidden;
+    overflow-x: hidden; /* Prevent horizontal scroll */
     overflow-y: auto; /* CRITICAL: Allow vertical scrolling */
     width: 100%;
     max-width: 100vw;
-    min-height: 100vh;
+    min-height: 100vh; /* FIXED: Changed from height to min-height */
     position: relative; /* Prevent fixed positioning issues */
   }
   
@@ -39,7 +39,7 @@
     overflow-y: auto; /* CRITICAL: Allow vertical scrolling */
     width: 100%;
     max-width: 100vw;
-    min-height: 100vh;
+    min-height: 100vh; /* FIXED: Changed from height to min-height */
     position: relative;
   }
   
@@ -54,6 +54,28 @@
   .app-container,
   .page-wrapper {
     pointer-events: auto !important;
+    overflow-y: auto; /* Allow vertical scrolling */
+    min-height: 100vh; /* FIXED: Changed from height to min-height */
+  }
+  
+  /* Page wrapper with bottom padding for mobile nav */
+  .page-wrapper {
+    padding-bottom: 80px; /* Space for bottom navigation */
+  }
+  
+  /* Container width fix for mobile */
+  .container {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  
+  @media (min-width: 768px) {
+    .container {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
   }
   
   /* CRITICAL: Ensure interactive elements are always clickable */
@@ -290,5 +312,119 @@ input, select, textarea {
   }
   .safe-area-right {
     padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Chart container responsive sizing */
+.chart-container {
+  width: 100%;
+  height: 300px; /* Mobile height */
+}
+
+@media (min-width: 768px) {
+  .chart-container {
+    height: 420px; /* Tablet/Desktop height */
+  }
+}
+
+/* Trading page layout - stacked on mobile, grid on desktop */
+.trade-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .trade-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+  }
+}
+
+/* Market watch list scrollable */
+.market-list {
+  max-height: 250px; /* Mobile max height */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+@media (min-width: 768px) {
+  .market-list {
+    max-height: 420px; /* Desktop max height */
+  }
+}
+
+/* Dashboard grid responsive */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* Single column on mobile */
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns on tablet */
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr); /* 3 columns on desktop */
+  }
+}
+
+/* Sidebar mobile fix */
+.sidebar {
+  position: fixed;
+  left: -100%;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  z-index: 1000;
+  transition: left 0.3s ease;
+  background: #0f172a;
+}
+
+.sidebar.open {
+  left: 0;
+}
+
+@media (min-width: 1024px) {
+  .sidebar {
+    position: relative;
+    left: 0;
+  }
+}
+
+/* Bottom navigation */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 999;
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+}
+
+/* Page wrapper to prevent content cut */
+.page {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Prevent horizontal scroll on all elements */
+* {
+  max-width: 100vw;
+}
+
+/* Fix for iOS Safari viewport height issues */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
   }
 }

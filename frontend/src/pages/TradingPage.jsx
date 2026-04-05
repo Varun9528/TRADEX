@@ -83,7 +83,7 @@ export default function TradingPage() {
   // Show minimal loading only on very first load
   if (loading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-bg-primary">
+      <div className="w-full min-h-screen flex items-center justify-center bg-bg-primary">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-brand-blue border-t-transparent rounded-full animate-spin"></div>
           <p className="text-text-secondary text-sm">Loading market data...</p>
@@ -100,7 +100,7 @@ export default function TradingPage() {
   const displaySelected = selected || instruments[0] || null;
 
   return (
-    <div className="w-full h-screen bg-bg-primary flex flex-col" style={{ minWidth: 0, minHeight: 0 }}>
+    <div className="w-full min-h-screen bg-bg-primary flex flex-col" style={{ minWidth: 0 }}>
       {/* Market Type Tabs - Top Bar */}
       <div className={`bg-bg-secondary border-b border-border px-4 py-2 flex items-center gap-2 flex-shrink-0`}>
         <button
@@ -155,20 +155,21 @@ export default function TradingPage() {
       <div 
         className="hidden xl:block"
         style={{
-          height: 'calc(100vh - 120px)',
+          minHeight: 'calc(100vh - 120px)', // FIXED: Changed from height to minHeight
         }}
       >
         <div 
-          className="grid h-full"
+          className="grid"
           style={{
             gridTemplateColumns: '260px minmax(0,1fr) 320px',
             gap: '8px',
             padding: '8px',
+            minHeight: 'inherit',
           }}
         >
           {/* Left: Instrument List / Watchlist - Fixed Width */}
           <div className="min-w-0" style={{ minWidth: 0 }}>
-            <div className="h-full overflow-y-auto">
+            <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               <Watchlist 
                 onStockSelect={setSelected} 
                 selectedSymbol={displaySelected?.symbol}
@@ -231,24 +232,21 @@ export default function TradingPage() {
       {/* For brevity, keeping existing responsive structure but with updated variable names */}
       
       {/* LAPTOP 1024px–1279px - Reduced 3 Column Layout */}
-      <div className="hidden lg:block xl:hidden" style={{ height: 'calc(100vh - 120px)' }}>
-        <div className="grid h-full" style={{ gridTemplateColumns: '220px minmax(0,1fr) 280px', gap: '6px', padding: '6px' }}>
+      <div className="hidden lg:block xl:hidden" style={{ minHeight: 'calc(100vh - 120px)' }}>
+        <div className="grid" style={{ gridTemplateColumns: '220px minmax(0,1fr) 280px', gap: '6px', padding: '6px', minHeight: 'inherit' }}>
           <div className="min-w-0">
-            <div className="h-full overflow-y-auto">
+            <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               <Watchlist onStockSelect={setSelected} selectedSymbol={displaySelected?.symbol} stocks={displayInstruments} marketType={marketType} />
             </div>
           </div>
-          <div className="min-w-0 flex flex-col h-full">
-            <div className="bg-bg-card border border-border rounded-lg overflow-hidden flex flex-col h-full">
+          <div className="min-w-0 flex flex-col">
+            <div className="bg-bg-card border border-border rounded-lg overflow-hidden flex flex-col">
               <div className="px-2 py-1.5 border-b border-border text-[11px] font-semibold text-text-primary">
                 {displaySelected?.symbol || "Select Instrument"}
               </div>
               <div 
-                className="w-full" 
+                className="w-full chart-container" 
                 style={{ 
-                  height: '400px', 
-                  minHeight: '400px',
-                  maxHeight: '400px',
                   overflow: 'hidden',
                   backgroundColor: '#0f172a' 
                 }}
@@ -264,7 +262,7 @@ export default function TradingPage() {
             </div>
           </div>
           <div className="min-w-0">
-            <div className="bg-bg-card border border-border rounded-lg p-2 h-full overflow-y-auto">
+            <div className="bg-bg-card border border-border rounded-lg p-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               <OrderPanel stock={displaySelected} tradingEnabled={isTradingEnabled} />
             </div>
           </div>
@@ -272,10 +270,10 @@ export default function TradingPage() {
       </div>
 
       {/* TABLET & MOBILE - Simplified layouts */}
-      <div className="lg:hidden flex flex-col gap-2 p-2 h-full overflow-y-auto pb-20">
+      <div className="lg:hidden flex flex-col gap-2 p-2 pb-20 trade-layout">
         <div 
-          className="bg-bg-card border border-border rounded-lg overflow-hidden" 
-          style={{ height: '45vh', minHeight: '350px', maxHeight: '45vh', overflow: 'hidden' }}
+          className="bg-bg-card border border-border rounded-lg overflow-hidden chart-container" 
+          style={{ overflow: 'hidden' }}
         >
           {displaySelected ? (
             <ChartPanel symbol={displaySelected.symbol} currentPrice={displaySelected.price || 0} chartData={displaySelected.chartData || []} />
