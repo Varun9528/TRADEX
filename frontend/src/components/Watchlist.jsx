@@ -96,7 +96,7 @@ export default function Watchlist({ onStockSelect, selectedSymbol, stocks, marke
   };
 
   return (
-    <div className="bg-bg-card border border-border rounded-lg overflow-hidden flex flex-col h-full">
+    <div className="bg-bg-card border border-border rounded-lg overflow-hidden flex flex-col">
       {/* Header */}
       <div className="px-2 md:px-3 py-2 md:py-2.5 border-b border-border bg-bg-secondary">
         <h3 className="font-semibold text-[11px] md:text-xs text-text-primary">
@@ -150,7 +150,7 @@ export default function Watchlist({ onStockSelect, selectedSymbol, stocks, marke
           </div>
         </div>
       ) : (
-        <div className="overflow-y-auto flex-1 market-list">
+        <div className="flex-1 market-list">
           <table className="w-full text-xs">
             <thead className="bg-bg-tertiary sticky top-0">
               <tr>

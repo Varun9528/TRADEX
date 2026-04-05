@@ -60,7 +60,10 @@
   
   /* Page wrapper with bottom padding for mobile nav */
   .page-wrapper {
-    padding-bottom: 80px; /* Space for bottom navigation */
+    padding-bottom: 90px; /* Space for bottom navigation - increased */
+    min-height: 100vh;
+    overflow-y: auto; /* ONLY main container scrolls */
+    overflow-x: hidden;
   }
   
   /* Container width fix for mobile */
@@ -327,6 +330,23 @@ input, select, textarea {
   }
 }
 
+/* Trading page sections - NO overflow, single scroll */
+.chart-section {
+  width: 100%;
+  height: 320px; /* Fixed chart height on mobile */
+}
+
+.trade-section {
+  width: 100%;
+  /* No max-height, no overflow - content flows naturally */
+}
+
+.market-section {
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+
 /* Trading page layout - stacked on mobile, grid on desktop */
 .trade-layout {
   display: flex;
@@ -342,16 +362,14 @@ input, select, textarea {
   }
 }
 
-/* Market watch list scrollable */
+/* Market watch list - NO independent scroll, page scrolls instead */
 .market-list {
-  max-height: 250px; /* Mobile max height */
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* Removed max-height and overflow - let page handle scrolling */
 }
 
 @media (min-width: 768px) {
   .market-list {
-    max-height: 420px; /* Desktop max height */
+    /* No max-height on any breakpoint */
   }
 }
 
